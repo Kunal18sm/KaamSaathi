@@ -86,11 +86,33 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('sevasetu_token');
   };
 
-  const updateUser = (updatedFields) => {
-    setUser(prev => {
-      if (!prev) return prev;
-      return { ...prev, ...updatedFields };
-    });
+  const updateUser = async (updatedFields) => {
+    if (!user) return;
+    try {
+      const res = await fetch('/api/users/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user.id,
+          role: user.role,
+          ...updatedFields
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        setUser(data.user);
+        if (data.token) {
+          setToken(data.token);
+          localStorage.setItem('sevasetu_token', data.token);
+        }
+        return { success: true, user: data.user };
+      }
+    } catch (err) {
+      console.error('Update profile API error:', err);
+    }
+    // Fallback to local state if backend API fails
+    setUser(prev => prev ? { ...prev, ...updatedFields } : prev);
+    return { success: true };
   };
 
   return (

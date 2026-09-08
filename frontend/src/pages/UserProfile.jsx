@@ -34,8 +34,8 @@ export default function UserProfile({ onBack, t }) {
     ? user.skills.join(', ') 
     : (user.skills || 'Household Technical Services');
 
-  const handleSaveProfile = () => {
-    updateUser({
+  const handleSaveProfile = async () => {
+    await updateUser({
       name: editName.trim() || user.name,
       phone: editPhone.trim() || user.phone,
       email: editEmail.trim() || user.email,

@@ -258,6 +258,60 @@ app.post('/api/auth/register', async (req, res) => {
   });
 });
 
+// 1.5 Update User Profile
+app.patch('/api/users/profile', async (req, res) => {
+  const { id, role, name, phone, email, location } = req.body;
+
+  let targetUser = null;
+  const cleanP = phone ? cleanPhone(phone) : null;
+
+  if (role === 'WORKER') {
+    const worker = store.workers.find(w => w.id === id || (cleanP && cleanPhone(w.phone) === cleanP));
+    if (worker) {
+      if (name) worker.name = name.trim();
+      if (phone) worker.phone = phone.trim();
+      if (email) worker.email = email.trim();
+      if (location) worker.location = typeof location === 'object' ? location : { ...worker.location, address: location };
+      targetUser = { ...worker, role: 'WORKER' };
+    }
+  } else {
+    const customer = store.customers.find(c => c.id === id || (cleanP && c.phone && cleanPhone(c.phone) === cleanP));
+    if (customer) {
+      if (name) customer.name = name.trim();
+      if (phone) customer.phone = phone.trim();
+      if (email) customer.email = email.trim();
+      if (location) customer.location = typeof location === 'object' ? location : { ...customer.location, address: location };
+      targetUser = { ...customer, role: 'CUSTOMER' };
+    } else if (store.customers.length > 0) {
+      const c = store.customers[0];
+      if (name) c.name = name.trim();
+      if (phone) c.phone = phone.trim();
+      if (email) c.email = email.trim();
+      if (location) c.location = typeof location === 'object' ? location : { ...c.location, address: location };
+      targetUser = { ...c, role: 'CUSTOMER' };
+    }
+  }
+
+  if (!targetUser) {
+    targetUser = { id: id || 'usr-1', name: name || 'User', phone: phone || '+91 98765 43210', email, location, role: role || 'CUSTOMER' };
+  }
+
+  // Update MongoDB if connected
+  if (mongoose.connection.readyState === 1) {
+    try {
+      await PersistentUser.updateOne(
+        { $or: [{ userId: id }, { phone }] },
+        { $set: { name, phone, email, location } }
+      );
+    } catch (err) {
+      console.error('MongoDB profile update warning:', err.message);
+    }
+  }
+
+  const token = jwt.sign(targetUser, JWT_SECRET, { expiresIn: '7d' });
+  return res.json({ success: true, message: 'Profile updated successfully', user: targetUser, token });
+});
+
 // 2. User Login
 app.post('/api/auth/login', (req, res) => {
   const { phone, role, demoRole } = req.body;

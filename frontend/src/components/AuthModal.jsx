@@ -155,10 +155,12 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl relative border border-gray-100 max-h-[92vh] overflow-y-auto">
+      <div className={`bg-white rounded-3xl w-full shadow-2xl relative border border-gray-100 max-h-[92vh] overflow-y-auto transition-all ${
+        mode === 'register' ? 'max-w-lg sm:max-w-xl' : 'max-w-md'
+      }`}>
 
         {/* ── Header ── */}
-        <div className="sticky top-0 bg-white z-10 px-6 pt-5 pb-4 border-b border-gray-100">
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 px-6 pt-5 pb-4 border-b border-gray-100">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 p-1.5 rounded-full transition"
@@ -177,20 +179,20 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                 {mode === 'login' ? label('welcomeBack', 'Welcome Back') : label('createAccount', 'Create Account')}
               </h2>
               <p className="text-xs text-gray-500">
-                {mode === 'login' ? 'Sign in to your KaamSathi account' : 'Join KaamSathi cooperative ecosystem'}
+                {mode === 'login' ? 'Sign in to your KaamSathi account' : 'Fill details below to join KaamSathi ecosystem'}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-6 py-6 space-y-6">
 
           {/* ── Role Picker ── */}
-          <div>
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
             <p className={SECTION_HDR}>Select Account Type</p>
             
             {/* Primary Roles: Customer & Technician */}
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-3">
               {mainRoles.map(({ key, icon: Icon, label: roleName }) => (
                 <button
                   key={key}
@@ -202,7 +204,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                   className={`py-3 px-3 rounded-xl border text-xs font-bold transition flex flex-col items-center gap-1.5 ${
                     role === key
                       ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-600/20'
-                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
                   }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -211,9 +213,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
               ))}
             </div>
 
-            {/* Admin / Official Roles in Sign-In (Small & subtle below main roles) */}
+            {/* Admin / Official Roles in Sign-In */}
             {mode === 'login' && (
-              <div className="mt-3.5 pt-3 border-t border-gray-100">
+              <div className="mt-3 pt-3 border-t border-gray-200/70">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
                     <KeyRound className="w-3 h-3 text-gray-400" />
@@ -246,208 +248,202 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
             )}
 
             {mode === 'register' && (
-              <p className="text-[11px] text-gray-400 text-center mt-2">
-                Cooperative Admin & Ministry accounts are pre-issued.
+              <p className="text-[11px] text-gray-500 text-center pt-1">
+                Cooperative Admin & Ministry accounts are pre-issued by authority.
               </p>
             )}
           </div>
 
           {/* ── Form ── */}
-          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+          <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
 
             {/* ── Register-only fields ── */}
             {mode === 'register' && (
-              <div className="space-y-4">
+              <div className="space-y-6">
 
-                {/* Basic Info */}
-                <div>
-                  <p className={SECTION_HDR}>Basic Info</p>
-                  <div className="space-y-3">
+                {/* Section 1: Basic Personal Info */}
+                <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-200/80 space-y-3">
+                  <p className={SECTION_HDR}>1. Personal Information</p>
 
-                    {/* Name + Photo in one row */}
-                    <div className="flex items-end gap-3">
-                      {/* Photo upload */}
-                      <div className="shrink-0 flex flex-col items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="relative w-14 h-14 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 hover:border-emerald-400 transition flex items-center justify-center"
-                        >
-                          {photoPreview ? (
-                            <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
-                          ) : (
-                            <User className="w-5 h-5 text-gray-400" />
-                          )}
-                        </button>
-                        <span className="text-[10px] text-gray-400 font-medium">Photo</span>
-                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-                      </div>
+                  <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4">
+                    {/* Photo upload */}
+                    <div className="shrink-0 flex flex-col items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-dashed border-gray-300 bg-white hover:border-emerald-500 transition flex items-center justify-center shadow-xs group"
+                      >
+                        {photoPreview ? (
+                          <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <User className="w-6 h-6 text-gray-400 group-hover:text-emerald-600 transition" />
+                        )}
+                      </button>
+                      <span className="text-[11px] text-gray-500 font-semibold">Upload Photo</span>
+                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+                    </div>
 
-                      {/* Name */}
-                      <div className="flex-1">
-                        <label className={LABEL_CLS}>Full Name *</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Ramesh Kumar"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          className={INPUT_CLS}
-                          autoComplete="off"
-                        />
-                      </div>
+                    {/* Full Name */}
+                    <div className="w-full sm:flex-1">
+                      <label className={LABEL_CLS}>Full Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Ramesh Kumar"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className={INPUT_CLS}
+                        autoComplete="off"
+                      />
                     </div>
                   </div>
                 </div>
 
-                {/* Technician Fields */}
+                {/* Section 2: Technician Details (If Worker) */}
                 {role === 'WORKER' && (
-                  <div className="border border-emerald-200 rounded-xl bg-emerald-50/50 overflow-hidden">
-                    <div className="px-4 py-2.5 bg-emerald-100/60 border-b border-emerald-200">
-                      <p className={SECTION_HDR + ' mb-0'}>Technician Details</p>
-                    </div>
-                    <div className="px-4 py-3 space-y-3">
+                  <div className="bg-emerald-50/60 p-4.5 rounded-2xl border border-emerald-200 space-y-4">
+                    <p className={SECTION_HDR}>2. Technician & Trade Details</p>
 
-                      {/* Cooperative + Experience in a 2-col grid */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className={LABEL_CLS}>Cooperative *</label>
-                          <select
-                            value={coopId}
-                            onChange={(e) => setCoopId(e.target.value)}
-                            className={INPUT_CLS}
-                          >
-                            <option value="coop-1">Delhi Shramik Swavalamban</option>
-                            <option value="coop-2">South Delhi Skill & Artisan</option>
-                            <option value="coop-3">NCR Household Technicians</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className={LABEL_CLS}>Experience (yrs) *</label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="60"
-                            required
-                            placeholder="e.g. 3"
-                            value={experienceYears}
-                            onChange={(e) => setExperienceYears(e.target.value)}
-                            className={INPUT_CLS}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Skills */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className={LABEL_CLS}>Skills & Services</label>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                          {skills.map((sk) => (
-                            <button
-                              key={sk}
-                              type="button"
-                              onClick={() => handleToggleSkill(sk)}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
-                                selectedSkills.includes(sk)
-                                  ? 'bg-emerald-600 text-white border-emerald-600'
-                                  : 'bg-white text-gray-600 border-gray-200 hover:border-emerald-400'
-                              }`}
-                            >
-                              {sk}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Certification (collapsible) */}
-                      <div className="border-t border-emerald-200/70 pt-3">
-                        <button
-                          type="button"
-                          onClick={() => setShowCertDetails(!showCertDetails)}
-                          className="flex items-center justify-between w-full text-xs font-bold text-emerald-800 hover:text-emerald-900 transition"
+                        <label className={LABEL_CLS}>Cooperative Society *</label>
+                        <select
+                          value={coopId}
+                          onChange={(e) => setCoopId(e.target.value)}
+                          className={INPUT_CLS}
                         >
-                          <span>Certification Details <span className="font-medium text-emerald-600">(optional)</span></span>
-                          <ChevronDown className={`w-4 h-4 transition-transform ${showCertDetails ? 'rotate-180' : ''}`} />
-                        </button>
+                          <option value="coop-1">Delhi Shramik Swavalamban Cooperative</option>
+                          <option value="coop-2">South Delhi Skill & Artisan Cooperative</option>
+                          <option value="coop-3">NCR Household Technicians Cooperative</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={LABEL_CLS}>Work Experience (Years) *</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="60"
+                          required
+                          placeholder="e.g. 4"
+                          value={experienceYears}
+                          onChange={(e) => setExperienceYears(e.target.value)}
+                          className={INPUT_CLS}
+                        />
+                      </div>
+                    </div>
 
-                        {showCertDetails && (
-                          <div className="mt-3 space-y-3">
+                    {/* Primary Skills */}
+                    <div>
+                      <label className={LABEL_CLS}>Skills & Services Offered</label>
+                      <div className="flex flex-wrap gap-2 mt-1.5">
+                        {skills.map((sk) => (
+                          <button
+                            key={sk}
+                            type="button"
+                            onClick={() => handleToggleSkill(sk)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                              selectedSkills.includes(sk)
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-400'
+                            }`}
+                          >
+                            {sk}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Collapsible Certificate Details */}
+                    <div className="border-t border-emerald-200 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowCertDetails(!showCertDetails)}
+                        className="flex items-center justify-between w-full text-xs font-black text-emerald-800 hover:text-emerald-900 transition py-1"
+                      >
+                        <span>Trade License & Certification <span className="font-semibold text-emerald-600">(Optional)</span></span>
+                        <ChevronDown className={`w-4 h-4 transition-transform ${showCertDetails ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {showCertDetails && (
+                        <div className="mt-3 space-y-3 bg-white p-3.5 rounded-xl border border-emerald-200">
+                          <div>
+                            <label className={LABEL_CLS}>Certificate / License Type</label>
+                            <select
+                              value={certificateType}
+                              onChange={(e) => setCertificateType(e.target.value)}
+                              className={INPUT_CLS}
+                            >
+                              <option value="ITI Trade Diploma">ITI Trade Diploma (NCVT)</option>
+                              <option value="Government Wireman/Electrical License">Govt. Wireman / Electrical License</option>
+                              <option value="Skill India (NSDC) Certificate">Skill India (NSDC) Certificate</option>
+                              <option value="State Labour Directorate Trade License">State Labour Trade License</option>
+                              <option value="Polytechnic Technical Certificate">Polytechnic Technical Certificate</option>
+                            </select>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className={LABEL_CLS}>Certificate Type</label>
-                              <select
-                                value={certificateType}
-                                onChange={(e) => setCertificateType(e.target.value)}
+                              <label className={LABEL_CLS}>Certificate / License No.</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. ITI/DL/2021/9841"
+                                value={certificateNumber}
+                                onChange={(e) => setCertificateNumber(e.target.value)}
                                 className={INPUT_CLS}
-                              >
-                                <option value="ITI Trade Diploma">ITI Trade Diploma (NCVT)</option>
-                                <option value="Government Wireman/Electrical License">Govt. Wireman / Electrical License</option>
-                                <option value="Skill India (NSDC) Certificate">Skill India (NSDC) Certificate</option>
-                                <option value="State Labour Directorate Trade License">State Labour Trade License</option>
-                                <option value="Polytechnic Technical Certificate">Polytechnic Technical Certificate</option>
-                              </select>
+                              />
                             </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <label className={LABEL_CLS}>Certificate No.</label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g. ITI/DL/2021/9841"
-                                  value={certificateNumber}
-                                  onChange={(e) => setCertificateNumber(e.target.value)}
-                                  className={INPUT_CLS}
-                                />
-                              </div>
-                              <div>
-                                <label className={LABEL_CLS}>Issuing Authority</label>
-                                <input
-                                  type="text"
-                                  placeholder="NCVT / State Board"
-                                  value={issuingAuthority}
-                                  onChange={(e) => setIssuingAuthority(e.target.value)}
-                                  className={INPUT_CLS}
-                                />
-                              </div>
-                            </div>
-
                             <div>
-                              <label className={LABEL_CLS}>Upload Certificate (PDF / Image)</label>
-                              <div className="flex items-center gap-2 mt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => certFileInputRef.current?.click()}
-                                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition"
-                                >
-                                  <UploadCloud className="w-3.5 h-3.5" />
-                                  Upload
-                                </button>
-                                <input ref={certFileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleCertDocChange} />
-                                {certDocFileName ? (
-                                  <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1 truncate max-w-[160px]">
-                                    <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                                    {certDocFileName}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-gray-400">Attach scan for committee review</span>
-                                )}
-                              </div>
+                              <label className={LABEL_CLS}>Issuing Board / Authority</label>
+                              <input
+                                type="text"
+                                placeholder="NCVT / State Labour Board"
+                                value={issuingAuthority}
+                                onChange={(e) => setIssuingAuthority(e.target.value)}
+                                className={INPUT_CLS}
+                              />
                             </div>
                           </div>
-                        )}
-                      </div>
+
+                          <div>
+                            <label className={LABEL_CLS}>Upload Certificate Scan (PDF / Image)</label>
+                            <div className="flex items-center gap-3 mt-1.5">
+                              <button
+                                type="button"
+                                onClick={() => certFileInputRef.current?.click()}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs"
+                              >
+                                <UploadCloud className="w-4 h-4" />
+                                Attach File
+                              </button>
+                              <input ref={certFileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleCertDocChange} />
+                              {certDocFileName ? (
+                                <span className="text-xs text-emerald-700 font-bold flex items-center gap-1 truncate max-w-[200px]">
+                                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  {certDocFileName}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-500">Scan for verification committee</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* ── Common Fields (phone + password) ── */}
-            <div className="space-y-3">
-              {mode === 'register' && <p className={SECTION_HDR}>Account Credentials</p>}
+            {/* Section 3: Account Credentials */}
+            <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-200/80 space-y-4">
+              <p className={SECTION_HDR}>
+                {mode === 'register' ? '3. Account Login Credentials' : 'Account Credentials'}
+              </p>
 
               <div>
                 <label className={LABEL_CLS}>Mobile Number *</label>
                 <div className="relative">
-                  <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Phone className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="tel"
                     inputMode="numeric"
@@ -456,7 +452,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                     placeholder="+91 98765 43210"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s-]/g, ''))}
-                    className={INPUT_CLS + ' pl-9'}
+                    className={INPUT_CLS + ' pl-10'}
                     autoComplete="off"
                   />
                 </div>
@@ -465,43 +461,44 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
               <div>
                 <label className={LABEL_CLS}>Password *</label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="password"
                     required
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={INPUT_CLS + ' pl-9'}
+                    className={INPUT_CLS + ' pl-10'}
                     autoComplete="new-password"
                   />
                 </div>
               </div>
             </div>
 
-            {/* ── Error ── */}
+            {/* ── Error Message ── */}
             {errorMsg && (
-              <div className="px-3 py-2.5 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-200">
-                {errorMsg}
+              <div className="p-3 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-200 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>{errorMsg}</span>
               </div>
             )}
 
-            {/* ── Submit ── */}
+            {/* ── Submit Button ── */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm rounded-xl shadow-md transition"
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-extrabold text-sm rounded-2xl shadow-md transition"
             >
               {loading
-                ? 'Please wait…'
+                ? 'Processing...'
                 : mode === 'login'
                   ? `Sign In as ${role}`
-                  : 'Create Account'}
+                  : 'Create Account Now'}
             </button>
           </form>
 
-          {/* ── Toggle ── */}
-          <p className="text-center text-xs text-gray-500 pt-1 border-t border-gray-100">
+          {/* ── Toggle Login / Register ── */}
+          <p className="text-center text-xs text-gray-500 pt-2 border-t border-gray-100">
             {mode === 'login' ? (
               <>Don&apos;t have an account?{' '}
                 <button onClick={handleSwitchToRegister} className="font-bold text-emerald-600 hover:underline">Register</button>
