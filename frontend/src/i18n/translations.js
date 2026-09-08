@@ -1,6 +1,6 @@
 export const translations = {
   en: {
-    appName: "Sahkaar / SevaSetu",
+    appName: "KaamSathi",
     tagline: "Cooperative Gig Services Platform for Household & Community Services",
     roles: {
       customer: "Customer App",

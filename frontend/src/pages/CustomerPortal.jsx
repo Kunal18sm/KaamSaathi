@@ -1,25 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Wrench, Zap, Hammer, Paintbrush, Sparkles, Trees, Wind, Heart, 
   Search, MapPin, AlertTriangle, CheckCircle, Star, ArrowRight, ShieldCheck, Download, CreditCard, X, UserCheck
 } from 'lucide-react';
 import ServiceMap from '../components/ServiceMap';
 import { generateInvoicePDF } from '../utils/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
+import { triggerJobAlert } from './WorkerPortal';
+import { SERVICE_IMAGES } from '../utils/serviceImages';
 
-const ICON_MAP = {
-  Wrench, Zap, Hammer, Paintbrush, Sparkles, Trees, Wind, Heart
-};
-
-const SERVICE_IMAGES = {
-  'srv-1': 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&q=80&w=500',
-  'srv-2': 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&q=80&w=500',
-  'srv-3': 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=500',
-  'srv-4': 'https://images.unsplash.com/photo-1562259949-e8e7689d7828?auto=format&fit=crop&q=80&w=500',
-  'srv-5': 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&q=80&w=500',
-  'srv-6': 'https://images.unsplash.com/photo-1558904541-efa8c196b27d?auto=format&fit=crop&q=80&w=500',
-  'srv-7': 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&q=80&w=500',
-  'srv-8': 'https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?auto=format&fit=crop&q=80&w=500'
+const SLIDER_SERVICE_IMAGES = {
+  'srv-1': 'https://plus.unsplash.com/premium_photo-1663045495725-89f23b57cfc5?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8cGx1bWJlcnxlbnwwfHwwfHx8MA%3D%3D',
+  'srv-2': '/services/electrical%20repair.png',
+  'srv-3': '/services/carpentry.png',
+  'srv-4': '/services/House%20Painting.png',
+  'srv-5': '/services/Deep%20Cleaning.png',
+  'srv-6': '/services/gardening-lawn.png',
+  'srv-7': '/services/ac-service-repair.png',
+  'srv-8': '/services/Elderly%20Caregiver.png'
 };
 
 const PAYMENT_METHODS = [
@@ -28,7 +25,7 @@ const PAYMENT_METHODS = [
   { id: 'cash', label: 'Pay at Service (Cash)', icon: CreditCard },
 ];
 
-export default function CustomerPortal({ t, onOpenProfile }) {
+export default function CustomerPortal({ t, onOpenProfile, onBrowseServices }) {
   const c = t?.customer || {};
   const { user } = useAuth();
   const [services, setServices] = useState([]);
@@ -100,6 +97,7 @@ export default function CustomerPortal({ t, onOpenProfile }) {
           notifiedCompletedIdsRef.current.add(b.id);
           if (!isFirstFetchRef.current) {
             setCompletedJobNotification(b);
+            triggerJobAlert({ isEmergency: false });
           }
         }
       });
@@ -353,11 +351,11 @@ export default function CustomerPortal({ t, onOpenProfile }) {
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Choose a service
           </h2>
-          <span className="text-xs font-bold text-emerald-700 cursor-pointer hover:underline">Browse All Services &rarr;</span>
+          <button onClick={onBrowseServices} className="text-xs font-bold text-emerald-700 hover:underline">Browse All Services &rarr;</button>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-5">
-          {services.slice(0, 8).map((srv) => {
+          {services.slice(0, 4).map((srv) => {
             const imgUrl = SERVICE_IMAGES[srv.id] || SERVICE_IMAGES['srv-1'];
             const isSelected = selectedService && selectedService.id === srv.id;
             return (
@@ -365,10 +363,10 @@ export default function CustomerPortal({ t, onOpenProfile }) {
                 key={srv.id}
                 onClick={() => handleFairMatch(srv)}
                 className={`group cursor-pointer space-y-2.5 transition transform hover:-translate-y-1 ${
-                  isSelected ? 'ring-2 ring-emerald-500 rounded-3xl p-1 bg-emerald-50/30' : ''
+                  isSelected ? 'border-2 border-emerald-500 rounded-lg p-1.5 bg-emerald-50/30' : ''
                 }`}
               >
-                <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-100 shadow-xs border border-slate-200/60">
+                <div className="relative aspect-square rounded-md overflow-hidden bg-slate-100 shadow-xs border border-slate-200">
                   <img 
                     src={imgUrl} 
                     alt={srv.name}
@@ -393,31 +391,33 @@ export default function CustomerPortal({ t, onOpenProfile }) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-2">
         
         {/* Left Side: Category Tiles Box (Single Row Horizontal Slide) */}
-        <div className="lg:col-span-6 bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-5">
+        <div className="lg:col-span-6 bg-white rounded-3xl p-4 border border-slate-200 shadow-xs space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-slate-900">{c.popularServices || 'Popular Household Services'}</h2>
             <span className="text-xs text-slate-500 font-medium">Transparent Labour Rates</span>
           </div>
 
           {/* Single Row Horizontal Slide / Scroll */}
-          <div className="flex items-center gap-3 overflow-x-auto pb-3 scroll-smooth no-scrollbar">
+          <div className="flex items-start gap-3 overflow-x-auto pb-1 scroll-smooth no-scrollbar">
             {services.map((srv) => {
-              const IconComponent = ICON_MAP[srv.icon] || Wrench;
+              const imageUrl = SLIDER_SERVICE_IMAGES[srv.id] || SERVICE_IMAGES[srv.id] || SERVICE_IMAGES['srv-1'];
               const isSelected = selectedService && selectedService.id === srv.id;
               return (
                 <button
                   key={srv.id}
                   onClick={() => handleFairMatch(srv)}
-                  className={`shrink-0 w-28 p-3.5 rounded-2xl text-center border transition flex flex-col items-center justify-center gap-2 relative ${
-                    isSelected 
-                      ? 'border-emerald-600 bg-emerald-50/70 text-emerald-950 ring-2 ring-emerald-500/20 shadow-xs'
-                      : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800'
-                  }`}
+                  className="shrink-0 w-16 text-center transition flex flex-col items-center gap-1 group"
                 >
-                  <div className={`p-2.5 rounded-xl ${isSelected ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-emerald-700 shadow-2xs'}`}>
-                    <IconComponent className="w-5 h-5" />
-                  </div>
-                  <div className="text-[11px] font-bold leading-tight text-slate-800 line-clamp-2">
+                  <img
+                    src={imageUrl}
+                    alt={srv.name}
+                    className={`h-12 w-12 rounded-full object-cover border-2 transition ${
+                      isSelected
+                        ? 'border-emerald-600 ring-2 ring-emerald-100'
+                        : 'border-slate-200 group-hover:border-emerald-400'
+                    }`}
+                  />
+                  <div className={`text-[9px] font-bold leading-3 line-clamp-2 ${isSelected ? 'text-emerald-700' : 'text-slate-700'}`}>
                     {srv.name}
                   </div>
                 </button>
@@ -426,7 +426,7 @@ export default function CustomerPortal({ t, onOpenProfile }) {
           </div>
 
           {selectedService && (
-            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2">
               <div>
                 <span className="text-xs text-slate-500">Selected: </span>
                 <span className="font-bold text-sm text-slate-900">{selectedService.name}</span>
@@ -437,7 +437,7 @@ export default function CustomerPortal({ t, onOpenProfile }) {
                 {/* Emergency Priority Toggle placed directly inside booking selection area */}
                 <button
                   onClick={() => setIsEmergency(!isEmergency)}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1 shrink-0 ${
+                  className={`px-2.5 py-2 rounded-xl text-[11px] font-bold transition flex items-center gap-1 shrink-0 ${
                     isEmergency ? 'bg-red-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-red-50'
                   }`}
                 >
@@ -448,7 +448,7 @@ export default function CustomerPortal({ t, onOpenProfile }) {
                 <button
                   onClick={() => handleFairMatch(selectedService)}
                   disabled={isMatching}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition flex-1 sm:flex-none"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition flex-1 sm:flex-none"
                 >
                   {isMatching ? 'Searching...' : 'Find Technicians'}
                   <ArrowRight className="w-3.5 h-3.5" />

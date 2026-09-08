@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sevasetu-pwa-v1';
+const CACHE_NAME = 'sevasetu-pwa-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -43,6 +43,26 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
+
+  // Vite development modules must always bypass the PWA cache. Intercepting
+  // these endpoints causes the dev client to fail before React can render.
+  if (url.hostname === 'localhost' && url.port === '3000' && (
+    url.pathname.startsWith('/@vite/') ||
+    url.pathname.startsWith('/@react-refresh') ||
+    url.pathname.startsWith('/src/')
+  )) {
+    return;
+  }
+
+  // Never serve a stale application shell after a new deployment. A cached
+  // index.html can otherwise point to JavaScript bundles that no longer exist,
+  // resulting in a blank white screen.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
 
   // API calls: Network-first, fallback to cache if offline (Only cache GET requests)
   if (url.pathname.startsWith('/api/')) {

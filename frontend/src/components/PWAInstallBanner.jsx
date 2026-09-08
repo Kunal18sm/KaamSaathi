@@ -96,10 +96,10 @@ export default function PWAInstallBanner({ variant = 'banner' }) {
               <span className="text-xs text-emerald-300 font-bold">&bull; Offline Support & Instant Push Alerts</span>
             </div>
             <h3 className="text-lg sm:text-xl font-black text-white mt-1">
-              Install SevaSetu Mobile App
+              Install KaamSathi Mobile App
             </h3>
             <p className="text-xs text-emerald-100/90 mt-0.5 max-w-xl">
-              Install SevaSetu directly to your phone home screen for 1-tap dispatches, real-time vibration alarms, and full native mobile app performance.
+              Install KaamSathi directly to your phone home screen for 1-tap dispatches, real-time vibration alarms, and full native mobile app performance.
             </p>
           </div>
         </div>

@@ -87,7 +87,12 @@ app.get('/api/health', (req, res) => {
 // AUTHENTICATION ROUTES (LOGIN & REGISTER)
 // ----------------------------------------------------
 
-const cleanPhone = (p) => p ? String(p).replace(/[^\d]/g, '') : '';
+// Store and compare Indian mobile numbers consistently. Registrations use a
+// `+91` prefix while the login form accepts the usual 10-digit input.
+const cleanPhone = (p) => {
+  const digits = p ? String(p).replace(/[^\d]/g, '') : '';
+  return digits.length > 10 ? digits.slice(-10) : digits;
+};
 
 // 1. User Register (Customer, Worker, Coop Admin)
 app.post('/api/auth/register', async (req, res) => {
