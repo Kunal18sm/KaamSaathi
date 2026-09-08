@@ -1,290 +1,37 @@
 import React from 'react';
-import { 
-  ShieldCheck, Heart, Users, LogIn, UserPlus, Wrench, Zap, Hammer, 
-  Paintbrush, Wind, ArrowRight, Building2, Shield, MapPin, Star
-} from 'lucide-react';
+import { ArrowRight, BadgeCheck, Building2, CalendarCheck, ChevronRight, Clock3, HardHat, HeartHandshake, ShieldCheck, Sparkles, Wrench, Zap, Hammer, Paintbrush, Wind } from 'lucide-react';
 import PWAInstallBanner from '../components/PWAInstallBanner';
 
-const SERVICES = [
-  {
-    icon: Wrench,
-    title: 'Plumbing',
-    price: 'Rs. 150 + distance',
-    img: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80&auto=format&fit=crop'
-  },
-  {
-    icon: Zap,
-    title: 'Electrical',
-    price: 'Rs. 150 + distance',
-    img: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400&q=80&auto=format&fit=crop'
-  },
-  {
-    icon: Hammer,
-    title: 'Carpentry',
-    price: 'Rs. 150 + distance',
-    img: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400&q=80&auto=format&fit=crop'
-  },
-  {
-    icon: Paintbrush,
-    title: 'House Painting',
-    price: 'Rs. 150 + distance',
-    img: 'https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=400&q=80&auto=format&fit=crop'
-  },
-  {
-    icon: Wind,
-    title: 'AC Service',
-    price: 'Rs. 150 + distance',
-    img: 'https://images.unsplash.com/photo-1631545806609-6fc0b84e6968?w=400&q=80&auto=format&fit=crop'
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Deep Cleaning',
-    price: 'Rs. 150 + distance',
-    img: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&q=80&auto=format&fit=crop'
-  },
+const services = [
+  { name: 'Plumbing', detail: 'Leaks, taps & fittings', icon: Wrench, tone: 'bg-sky-50 text-sky-700' },
+  { name: 'Electrical', detail: 'Wiring & appliances', icon: Zap, tone: 'bg-amber-50 text-amber-700' },
+  { name: 'Carpentry', detail: 'Repairs & furniture', icon: Hammer, tone: 'bg-orange-50 text-orange-700' },
+  { name: 'Painting', detail: 'Homes & touch-ups', icon: Paintbrush, tone: 'bg-violet-50 text-violet-700' },
+  { name: 'AC Service', detail: 'Cleaning & repair', icon: Wind, tone: 'bg-cyan-50 text-cyan-700' },
+  { name: 'Deep Cleaning', detail: 'A cleaner home', icon: Sparkles, tone: 'bg-emerald-50 text-emerald-700' },
 ];
-
-const HOW_IT_WORKS = [
-  {
-    step: '1',
-    title: 'Select a Service',
-    desc: 'Browse household services. Our engine instantly finds verified cooperative technicians within 5 km of your location.',
-    img: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&q=80&auto=format&fit=crop'
-  },
-  {
-    step: '2',
-    title: 'Match & Book',
-    desc: 'View matched workers with distance-based transparent pricing. Pick and pay via UPI, netbanking, or cash.',
-    img: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&q=80&auto=format&fit=crop'
-  },
-  {
-    step: '3',
-    title: 'Job Done & Rate',
-    desc: 'Technician arrives, completes the work and sends a digital receipt. Pay final bill and rate each other.',
-    img: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&q=80&auto=format&fit=crop'
-  },
+const steps = [
+  { icon: CalendarCheck, title: 'Choose a service', text: 'Tell us what you need in a few simple steps.' },
+  { icon: HardHat, title: 'Get a verified technician', text: 'We match you with a nearby cooperative professional.' },
+  { icon: HeartHandshake, title: 'Pay after the service', text: 'See clear pricing, get your receipt and rate the work.' },
 ];
 
 export default function LandingPage({ onOpenAuth, t }) {
   const l = t?.landing || {};
-
-  return (
-    <div className="space-y-10 py-2 sm:py-4">
-      {/* PWA Install Banner */}
-      <PWAInstallBanner variant="banner" />
-
-      {/* Hero Section — split layout with image */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 shadow-2xl">
-        <div className="absolute inset-0 pointer-events-none">
-          <img
-            src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1400&q=70&auto=format&fit=crop"
-            alt=""
-            className="w-full h-full object-cover opacity-10"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/95 via-teal-950/80 to-transparent" />
-        </div>
-
-        <div className="relative z-10 flex flex-col md:flex-row items-center gap-0">
-          {/* Text side */}
-          <div className="flex-1 p-7 sm:p-12 space-y-5">
-            <div className="flex items-center gap-2">
-              <img src="/logo.jpg" alt="SevaSetu" className="w-9 h-9 rounded-xl object-cover shadow-md" />
-              <span className="text-emerald-400 text-xs font-black uppercase tracking-wider">
-                {l.tag || 'Cooperative Owned Digital Labour Ecosystem'}
-              </span>
-            </div>
-
-            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
-              {l.heroTitle || 'Fair Household & Community Services'}
-            </h1>
-
-            <p className="text-emerald-100/80 text-sm sm:text-base leading-relaxed max-w-md">
-              {l.heroDesc || 'Connecting verified cooperative technicians directly with households. Distance-based transparent pricing, fair work distribution, and automated worker welfare.'}
-            </p>
-
-            <div className="flex flex-wrap gap-3 pt-2">
-              <button
-                onClick={() => onOpenAuth('login', 'CUSTOMER')}
-                className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-sm rounded-xl shadow-xl shadow-emerald-500/30 flex items-center gap-2 transition hover:scale-105"
-              >
-                <LogIn className="w-4 h-4 stroke-[3]" />
-                {l.bookServiceBtn || 'Book a Service'}
-              </button>
-              <button
-                onClick={() => onOpenAuth('register', 'WORKER')}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/25 text-white font-bold text-sm rounded-xl flex items-center gap-2 backdrop-blur-sm transition"
-              >
-                <UserPlus className="w-4 h-4 text-emerald-400" />
-                {l.joinWorkerBtn || 'Join as Technician'}
-              </button>
-            </div>
-
-            {/* Trust stats row */}
-            <div className="flex flex-wrap gap-4 pt-2">
-              {[
-                { val: '1,200+', label: 'Verified Workers' },
-                { val: '38 Districts', label: 'Coverage' },
-                { val: '4.8', label: 'Avg Rating' },
-              ].map(s => (
-                <div key={s.label} className="text-center">
-                  <div className="text-white font-black text-base">{s.val}</div>
-                  <div className="text-emerald-400/80 text-[10px] font-bold uppercase tracking-wide">{s.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Hero image panel */}
-          <div className="hidden md:block w-72 lg:w-96 shrink-0 self-stretch">
-            <img
-              src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=700&q=80&auto=format&fit=crop"
-              alt="Cooperative technician at work"
-              className="w-full h-full object-cover opacity-70"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Services Grid */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-end">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900">Explore Services</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Price = Rs. 150 base + Rs. 25/km travel fare</p>
-          </div>
-          <button
-            onClick={() => onOpenAuth('login', 'CUSTOMER')}
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition"
-          >
-            <span>View All</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {SERVICES.map((s, idx) => (
-            <button
-              key={idx}
-              onClick={() => onOpenAuth('login', 'CUSTOMER')}
-              className="rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-lg transition group text-left"
-            >
-              <div className="h-24 overflow-hidden">
-                <img
-                  src={s.img}
-                  alt={s.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                />
-              </div>
-              <div className="p-3 space-y-0.5">
-                <div className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition">{s.title}</div>
-                <div className="text-[10px] text-slate-400 font-semibold">{s.price}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* How It Works — image cards */}
-      <div className="space-y-5">
-        <div className="text-center space-y-1">
-          <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full uppercase tracking-wider">
-            Simple Process
-          </span>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-2">How SevaSetu Works</h2>
-          <p className="text-xs text-slate-500">Transparent, fair, and government verified cooperative ecosystem</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {HOW_IT_WORKS.map((step) => (
-            <div key={step.step} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition group">
-              <div className="h-40 overflow-hidden relative">
-                <img
-                  src={step.img}
-                  alt={step.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300 opacity-90"
-                />
-                <div className="absolute top-3 left-3">
-                  <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-black text-sm flex items-center justify-center shadow-md">
-                    {step.step}
-                  </span>
-                </div>
-              </div>
-              <div className="p-5 space-y-2">
-                <h3 className="font-bold text-base text-slate-900">{step.title}</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">{step.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Features row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          {
-            icon: ShieldCheck,
-            color: 'emerald',
-            title: l.feature1Title || 'Verified Technicians',
-            desc: l.feature1Desc || 'All workers belong to registered cooperatives. Trade certificates verified by committee before job dispatches.',
-            img: 'https://images.unsplash.com/photo-1560472355-536de3962603?w=600&q=80&auto=format&fit=crop'
-          },
-          {
-            icon: Heart,
-            color: 'purple',
-            title: l.feature2Title || 'Worker Welfare Fund',
-            desc: l.feature2Desc || '5% of every booking auto-credited to technician social security and PMJJBY health insurance pool.',
-            img: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&q=80&auto=format&fit=crop'
-          },
-          {
-            icon: Users,
-            color: 'blue',
-            title: l.feature3Title || 'Fair Allocation Engine',
-            desc: l.feature3Desc || 'Algorithm prioritizes lower-earning technicians to ensure balanced livelihood across the cooperative community.',
-            img: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=600&q=80&auto=format&fit=crop'
-          }
-        ].map((f, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm group hover:shadow-md transition">
-            <div className="h-36 overflow-hidden">
-              <img
-                src={f.img}
-                alt={f.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition duration-300 opacity-80"
-              />
-            </div>
-            <div className="p-5 space-y-2">
-              <div className={`inline-flex items-center gap-2 text-${f.color}-700 bg-${f.color}-50 px-2.5 py-1 rounded-lg border border-${f.color}-200 text-xs font-bold`}>
-                <f.icon className="w-3.5 h-3.5" />
-                {f.title}
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">{f.desc}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Admin quick access */}
-      <div className="bg-slate-900 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div>
-          <div className="text-white font-bold text-sm">Admin & Ministry Portal</div>
-          <p className="text-slate-400 text-xs mt-0.5">For Cooperative Administrators and Ministry Officials</p>
-        </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <button
-            onClick={() => onOpenAuth('login', 'COOPERATIVE')}
-            className="flex-1 sm:flex-none px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5"
-          >
-            <Shield className="w-3.5 h-3.5 text-emerald-400" />
-            Coop Admin
-          </button>
-          <button
-            onClick={() => onOpenAuth('login', 'FEDERATION')}
-            className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-sm"
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            Ministry Login
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="space-y-12 py-3 sm:py-6">
+    <PWAInstallBanner />
+    <section className="relative overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-9 sm:px-10 sm:py-14 lg:px-14">
+      <div className="absolute -right-20 -top-28 h-80 w-80 rounded-full bg-emerald-500/20 blur-3xl" /><div className="absolute -bottom-36 left-1/3 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
+      <div className="relative grid items-center gap-10 lg:grid-cols-[1.15fr_.85fr]"><div className="max-w-2xl">
+        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-200"><BadgeCheck className="h-4 w-4" /> Verified cooperative professionals</div>
+        <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">Reliable home services, without the hassle.</h1>
+        <p className="mt-5 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">{l.heroDesc || 'Book skilled local technicians from trusted cooperatives. Fair pricing, transparent updates, and support when you need it.'}</p>
+        <div className="mt-7 flex flex-col gap-3 sm:flex-row"><button onClick={() => onOpenAuth('login', 'CUSTOMER')} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-300">Book a service <ArrowRight className="h-4 w-4" /></button><button onClick={() => onOpenAuth('register', 'WORKER')} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10">Join as a technician</button></div>
+        <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-xs font-medium text-slate-300"><span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-300" /> Background-verified workers</span><span className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4 text-emerald-300" /> Quick nearby matching</span></div>
+      </div><div className="rounded-3xl border border-white/10 bg-white p-5 text-slate-900 shadow-2xl"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold text-slate-500">Need help today?</p><h2 className="mt-1 text-lg font-extrabold">Start a booking</h2></div><div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700"><Wrench className="h-6 w-6" /></div></div><div className="mt-5 space-y-3"><div className="rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-500">Select a service after signing in</div><button onClick={() => onOpenAuth('login', 'CUSTOMER')} className="flex w-full items-center justify-between rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">Find a technician <ChevronRight className="h-4 w-4" /></button></div><p className="mt-4 text-center text-[11px] font-medium text-slate-400">Simple booking • Clear pricing • Digital receipt</p></div></div>
+    </section>
+    <section><div className="mb-5 flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">What we can help with</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">Popular services</h2></div><p className="hidden text-right text-xs text-slate-500 sm:block">Starting labour charge: ₹150</p></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{services.map(({ name, detail, icon: Icon, tone }) => <button key={name} onClick={() => onOpenAuth('login', 'CUSTOMER')} className="group rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"><span className={`inline-flex rounded-xl p-2.5 ${tone}`}><Icon className="h-5 w-5" /></span><h3 className="mt-4 text-sm font-bold text-slate-900 group-hover:text-emerald-700">{name}</h3><p className="mt-1 text-[11px] leading-4 text-slate-500">{detail}</p></button>)}</div></section>
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8"><div className="text-center"><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Simple from start to finish</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900">How SevaSetu works</h2></div><div className="mt-8 grid gap-6 md:grid-cols-3">{steps.map(({ icon: Icon, title, text }, index) => <div key={title} className="text-center"><div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700"><Icon className="h-5 w-5" /></div><span className="mt-3 block text-xs font-bold text-emerald-700">STEP 0{index + 1}</span><h3 className="mt-1 font-bold text-slate-900">{title}</h3><p className="mx-auto mt-2 max-w-xs text-xs leading-5 text-slate-500">{text}</p></div>)}</div></section>
+    <section className="flex flex-col items-start justify-between gap-5 rounded-3xl bg-emerald-50 px-6 py-6 sm:flex-row sm:items-center sm:px-8"><div><h2 className="text-lg font-extrabold text-slate-900">For cooperatives and government teams</h2><p className="mt-1 text-sm text-slate-600">Manage members, jobs and service delivery in one place.</p></div><div className="flex w-full gap-2 sm:w-auto"><button onClick={() => onOpenAuth('login', 'COOPERATIVE')} className="flex-1 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100 sm:flex-none">Cooperative login</button><button onClick={() => onOpenAuth('login', 'FEDERATION')} className="flex-1 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-800 sm:flex-none"><Building2 className="mr-1.5 inline h-3.5 w-3.5" /> Ministry</button></div></section>
+  </div>;
 }

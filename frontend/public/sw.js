@@ -44,12 +44,12 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
 
-  // API calls: Network-first, fallback to cache if offline
+  // API calls: Network-first, fallback to cache if offline (Only cache GET requests)
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.status === 200) {
+          if (response.status === 200 && request.method === 'GET') {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(request, responseClone);
@@ -57,7 +57,7 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(request))
+        .catch(() => request.method === 'GET' ? caches.match(request) : null)
     );
     return;
   }
@@ -66,16 +66,18 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Asynchronously update cache in background
-        fetch(request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
-          }
-        }).catch(() => {});
+        // Asynchronously update cache in background (GET requests only)
+        if (request.method === 'GET') {
+          fetch(request).then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
+            }
+          }).catch(() => {});
+        }
         return cachedResponse;
       }
       return fetch(request).catch(() => {
-        if (request.headers.get('accept').includes('text/html')) {
+        if (request.headers.get('accept')?.includes('text/html')) {
           return caches.match('/index.html');
         }
       });

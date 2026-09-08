@@ -86,8 +86,15 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('sevasetu_token');
   };
 
+  const updateUser = (updatedFields) => {
+    setUser(prev => {
+      if (!prev) return prev;
+      return { ...prev, ...updatedFields };
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, login, demoLogin, register, logout }}>
+    <AuthContext.Provider value={{ user, token, login, demoLogin, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

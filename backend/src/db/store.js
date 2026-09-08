@@ -58,7 +58,62 @@ const store = {
     { id: 'srv-8', name: 'Elderly Caregiver', category: 'Care', basePrice: 800, icon: 'Heart', estimatedMin: 360, popular: false }
   ],
 
-  workers: [],
+  workers: [
+    {
+      id: 'wrk-101',
+      name: 'Ramesh Kumar',
+      phone: '+91 98765 11111',
+      photo: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&q=80&w=200',
+      coopId: 'coop-1',
+      coopName: 'Delhi Shramik Swavalamban Cooperative Society',
+      skills: ['Plumbing', 'AC Service & Repair', 'Electrical Repair'],
+      experienceYears: 6,
+      certificates: ['ITI Plumbing Certification'],
+      location: { lat: 28.6150, lng: 77.2100, address: 'Central Delhi' },
+      availability: true,
+      rating: 5.0,
+      jobsCompleted: 0,
+      totalEarnings: 0,
+      weeklyEarnings: 0,
+      verificationStatus: 'VERIFIED',
+      gender: 'Male',
+      reviews: [],
+      welfare: {
+        accountNo: 'WEL-DEL-1011',
+        fundBalance: 1250,
+        insuranceActive: true,
+        insurancePolicyNo: 'PMJJBY-884102',
+        trainingsCompleted: 3
+      }
+    },
+    {
+      id: 'wrk-102',
+      name: 'Sunita Devi',
+      phone: '+91 98765 22222',
+      photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200',
+      coopId: 'coop-2',
+      coopName: 'South Delhi Skill & Artisan Labour Cooperative',
+      skills: ['Deep Cleaning', 'House Painting'],
+      experienceYears: 4,
+      certificates: ['NSDC Sanitation & Hygiene Cert'],
+      location: { lat: 28.5500, lng: 77.2000, address: 'Hauz Khas, New Delhi' },
+      availability: true,
+      rating: 5.0,
+      jobsCompleted: 0,
+      totalEarnings: 0,
+      weeklyEarnings: 0,
+      verificationStatus: 'VERIFIED',
+      gender: 'Female',
+      reviews: [],
+      welfare: {
+        accountNo: 'WEL-DEL-1022',
+        fundBalance: 980,
+        insuranceActive: true,
+        insurancePolicyNo: 'PMJJBY-993104',
+        trainingsCompleted: 2
+      }
+    }
+  ],
   customers: [],
   bookings: [],
   welfareTransactions: [],

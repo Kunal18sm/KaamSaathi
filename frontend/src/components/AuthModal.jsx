@@ -14,7 +14,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
   const [password, setPassword] = useState('');
   const [coopId, setCoopId] = useState('coop-1');
   const [selectedSkills, setSelectedSkills] = useState(['Plumbing']);
-  const [experienceYears, setExperienceYears] = useState('4');
+  const [experienceYears, setExperienceYears] = useState('');
 
   // Realistic Certification Fields
   const [certificateType, setCertificateType] = useState('ITI Trade Diploma');
@@ -103,26 +103,34 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
         return;
       }
 
-      if (!name || !name.trim()) {
+      const cleanName = name.trim().replace(/\s+/g, ' ');
+      const phoneDigits = phone.replace(/\D/g, '');
+      if (!/^[A-Za-z][A-Za-z .'-]{1,49}$/.test(cleanName)) {
         setLoading(false);
-        setErrorMsg('Please enter your full name.');
+        setErrorMsg('Enter a valid full name using letters only (minimum 2 characters).');
         return;
       }
 
-      if (!phone || !phone.trim()) {
+      if (!/^[6-9]\d{9}$/.test(phoneDigits.slice(-10))) {
         setLoading(false);
-        setErrorMsg('Please enter your mobile number.');
+        setErrorMsg('Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+        return;
+      }
+
+      if (role === 'WORKER' && (!Number.isInteger(Number(experienceYears)) || Number(experienceYears) < 0 || Number(experienceYears) > 60)) {
+        setLoading(false);
+        setErrorMsg('Enter valid work experience between 0 and 60 years.');
         return;
       }
 
       const formData = {
-        name: name.trim(),
-        phone: phone.trim(),
+        name: cleanName,
+        phone: `+91 ${phoneDigits.slice(-10)}`,
         password,
         role,
         coopId,
         skills: selectedSkills,
-        experienceYears,
+        experienceYears: role === 'WORKER' ? Number(experienceYears) : undefined,
         certificateType,
         certificateNumber: certificateNumber.trim() || `CERT-${Math.floor(10000 + Math.random() * 90000)}`,
         issuingAuthority,
@@ -295,6 +303,11 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                     </select>
                   </div>
 
+                  <div>
+                    <label className="text-xs font-bold text-emerald-900">Work Experience (years)</label>
+                    <input type="number" min="0" max="60" step="1" required value={experienceYears} onChange={(e) => setExperienceYears(e.target.value)} placeholder="e.g. 3" className="w-full mt-1 p-2.5 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  </div>
+
                   {/* Skills */}
                   <div>
                     <label className="text-xs font-bold text-emerald-900">{label('skillsLabel', 'Skills & Services')}</label>
@@ -401,11 +414,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
             <div className="relative mt-1">
               <Phone className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
+                maxLength="14"
                 required
                 placeholder={label('mobilePlaceholder', '+91 98765 43210')}
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s-]/g, ''))}
                 className="w-full p-3 pl-10 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>

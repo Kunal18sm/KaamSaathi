@@ -76,9 +76,6 @@ export default function ServiceMap({
         <Marker position={mapCenter} icon={isEmergency ? emergencyIcon : customerIcon}>
           <Popup>
             <div className="text-sm font-bold text-gray-900">{centerTitle}</div>
-            <div className="text-xs text-gray-500">
-              Lat: {mapCenter[0].toFixed(4)}, Lng: {mapCenter[1].toFixed(4)}
-            </div>
           </Popup>
         </Marker>
 

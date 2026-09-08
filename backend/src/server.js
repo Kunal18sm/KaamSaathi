@@ -1,12 +1,22 @@
 require('dotenv').config();
+
+// Prevent server from crashing on unhandled errors
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err.message, err.stack);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+});
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const connectDB = require('./db/connect');
 const store = require('./db/store');
-const { findBestWorkerMatch, getHaversineDistance } = require('./services/matchingEngine');
+const { findBestWorkerMatch, getHaversineDistance, calculateInviteFee } = require('./services/matchingEngine');
 const { uploadImage } = require('./utils/cloudinary');
+const { User: PersistentUser } = require('./models/schemas');
+const mongoose = require('mongoose');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -16,8 +26,38 @@ app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Initialize MongoDB Connection at startup
-connectDB();
+// Keep the verified technicians bundled with the demo data available for matching.
+// Registered accounts from MongoDB are added below, so a fresh installation can
+// complete the customer booking flow without waiting for a separate onboarding.
+store.customers = [];
+const bundledWorkerIds = new Set(store.workers.map(worker => worker.id));
+
+// Load registered accounts from MongoDB when it is configured, so accounts survive a server restart.
+(async () => {
+  const connected = await connectDB();
+  if (!connected) return;
+  try {
+    const users = await PersistentUser.find({ userId: { $regex: /^(usr-|wrk-)/ } }).lean();
+    const registeredWorkers = users.filter(doc => doc.role === 'WORKER');
+
+    // This installation uses instant technician activation so a newly registered
+    // worker can receive a test booking immediately. Once real workers exist,
+    // do not route their work to the bundled demo technician accounts.
+    if (registeredWorkers.length > 0) {
+      store.workers = store.workers.filter(worker => !bundledWorkerIds.has(worker.id));
+    }
+
+    users.forEach(doc => {
+      const user = { ...doc, id: doc.userId, _id: undefined };
+      if (user.role === 'WORKER') user.verificationStatus = 'VERIFIED';
+      if (user.role === 'WORKER' && !store.workers.some(worker => worker.id === user.id)) store.workers.push(user);
+      if (user.role === 'CUSTOMER') store.customers.push(user);
+    });
+    console.log(`Loaded ${store.workers.length} workers and ${store.customers.length} customers from MongoDB.`);
+  } catch (err) {
+    console.warn('Could not load registered accounts from MongoDB:', err.message);
+  }
+})();
 
 // Request logger
 app.use((req, res, next) => {
@@ -58,6 +98,19 @@ app.post('/api/auth/register', async (req, res) => {
 
   if (!phone || !name || !role) {
     return res.status(400).json({ error: 'Name, phone, and role are required' });
+  }
+
+  const normalizedName = String(name).trim().replace(/\s+/g, ' ');
+  const phoneDigits = cleanPhone(phone);
+  const indianMobile = phoneDigits.length === 10 ? phoneDigits : phoneDigits.slice(-10);
+  if (!/^[A-Za-z][A-Za-z .'-]{1,49}$/.test(normalizedName)) {
+    return res.status(400).json({ error: 'Enter a valid full name using letters only.' });
+  }
+  if (!/^[6-9]\d{9}$/.test(indianMobile)) {
+    return res.status(400).json({ error: 'Enter a valid 10-digit Indian mobile number.' });
+  }
+  if (role === 'WORKER' && (!Number.isInteger(Number(experienceYears)) || Number(experienceYears) < 0 || Number(experienceYears) > 60)) {
+    return res.status(400).json({ error: 'Work experience must be a whole number between 0 and 60 years.' });
   }
 
   // Cooperative Admin & Ministry accounts cannot be created via public self-registration
@@ -117,22 +170,24 @@ app.post('/api/auth/register', async (req, res) => {
 
     const newWorker = {
       id: `wrk-${Math.floor(100 + Math.random() * 900)}`,
-      name,
-      phone,
+      name: normalizedName,
+      phone: `+91 ${indianMobile}`,
       photo: photoUrl,
       coopId: selectedCoop.id,
       coopName: selectedCoop.name,
       skills: Array.isArray(skills) && skills.length > 0 ? skills : ['Plumbing'],
-      experienceYears: parseInt(experienceYears) || 2,
+      experienceYears: Number(experienceYears),
       certificates: [certTitle],
       certificateDetails: [certDetails],
       location: { lat: userLat, lng: userLng, address: userAddr },
       availability: true,
-      rating: 5.0,
+      rating: 0,
       jobsCompleted: 0,
       totalEarnings: 0,
       weeklyEarnings: 0,
-      verificationStatus: 'PENDING_REVIEW',
+      // Instant activation is enabled for the current demo workflow. This keeps
+      // a newly registered technician eligible for an immediate booking test.
+      verificationStatus: 'VERIFIED',
       gender: 'Male',
       welfare: {
         accountNo: `WEL-DEL-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -175,6 +230,17 @@ app.post('/api/auth/register', async (req, res) => {
     };
     store.customers.unshift(newCust);
     registeredUser = { ...newCust, role: 'CUSTOMER' };
+  }
+
+  // Persist newly registered customer/worker accounts when MongoDB is connected.
+  if (mongoose.connection.readyState === 1 && (registeredUser.role === 'WORKER' || registeredUser.role === 'CUSTOMER')) {
+    try {
+      const { id, ...persistentFields } = registeredUser;
+      await PersistentUser.create({ ...persistentFields, userId: id });
+    } catch (err) {
+      console.error('MongoDB account save failed:', err.message);
+      return res.status(500).json({ error: 'Account could not be saved to the database. Please try again.' });
+    }
   }
 
   const token = jwt.sign(registeredUser, JWT_SECRET, { expiresIn: '7d' });
@@ -337,6 +403,15 @@ app.post('/api/workers/verify', (req, res) => {
   res.json({ success: true, worker });
 });
 
+// Keep the technician's availability in sync with matching and the worker portal.
+app.patch('/api/workers/:id/availability', (req, res) => {
+  const worker = store.workers.find(w => String(w.id) === String(req.params.id));
+  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+  worker.availability = Boolean(req.body.availability);
+  res.json({ success: true, worker });
+});
+
 // 8. Fair Match Preview
 app.post('/api/bookings/match', (req, res) => {
   const { serviceName, latitude, longitude, emergency } = req.body;
@@ -354,13 +429,13 @@ app.post('/api/bookings/match', (req, res) => {
 // 9. Create Booking (With Haversine distance-based dynamic pricing)
 app.post('/api/bookings/create', (req, res) => {
   const {
-    customerId, customerName, customerPhone, serviceId, serviceName, workerId,
+    customerId, customerName, customerPhone, customerPhoto, serviceId, serviceName, workerId,
     address, latitude, longitude, scheduledTime, emergency,
     scheduledDate, scheduledSlot, paymentMethod, paymentStatus: payStatus,
     matchRationale: passedRationale
   } = req.body;
 
-  const service = store.services.find(s => s.id === serviceId) || { basePrice: 500 };
+  const service = store.services.find(s => s.id === serviceId) || { basePrice: 450 };
   const worker = store.workers.find(w => w.id === workerId);
 
   if (!worker) {
@@ -372,12 +447,11 @@ app.post('/api/bookings/create', (req, res) => {
   const wrkLat = worker.location?.lat || 28.6139;
   const wrkLng = worker.location?.lng || 77.2090;
 
-  // Haversine Distance Fare Calculation
+  // Haversine Distance & Invite Fee Calculation
   const distanceKm = parseFloat(getHaversineDistance(custLat, custLng, wrkLat, wrkLng).toFixed(2));
-  const baseFee = 150; // Base inspection & setup fee
-  const perKmRate = 25; // ₹25 per kilometer
-  const distanceCharge = Math.max(30, Math.round(distanceKm * perKmRate));
-  const subtotal = baseFee + distanceCharge;
+  const inviteFee = calculateInviteFee(distanceKm);
+  const labourCost = service.basePrice || 450;
+  const subtotal = inviteFee + labourCost;
   const serviceTax = Math.round(subtotal * 0.05);
   const initialEstimate = subtotal + serviceTax;
 
@@ -390,6 +464,7 @@ app.post('/api/bookings/create', (req, res) => {
     customerId: customerId || 'cust-1',
     customerName: customerName || 'Customer',
     customerPhone: customerPhone || '+91 98990 12345',
+    customerPhoto: customerPhoto || null,
     workerId: worker.id,
     workerName: worker.name,
     workerPhone: worker.phone,
@@ -405,10 +480,9 @@ app.post('/api/bookings/create', (req, res) => {
     latitude: custLat,
     longitude: custLng,
     pricing: {
-      baseFee,
-      perKmRate,
+      inviteFee,
+      labourCost,
       distanceKm,
-      distanceCharge,
       subtotal,
       serviceTax,
       totalAmount: initialEstimate,
@@ -419,7 +493,7 @@ app.post('/api/bookings/create', (req, res) => {
     paymentStatus: payStatus || 'UNPAID',
     paymentMethod: paymentMethod || 'UPI / Online',
     createdAt: new Date().toISOString(),
-    matchRationale: passedRationale || `Assigned ${worker.name} (${worker.coopName}): Verified technician (${distanceKm} km away, ₹${distanceCharge} travel fare).`
+    matchRationale: passedRationale || `Assigned ${worker.name} (${worker.coopName}): Verified technician (${distanceKm} km away, Invite Fee: ₹${inviteFee}, Labour: ₹${labourCost}).`
   };
 
   store.bookings.unshift(newBooking);
@@ -441,10 +515,10 @@ app.patch('/api/bookings/:id/status', (req, res) => {
   res.json({ success: true, booking });
 });
 
-// 10B. Technician Finalizes Work & Generates Bill Receipt
+// 10B. Technician Requests Material Cost / Finalizes Work Receipt
 app.post('/api/bookings/:id/generate-bill', (req, res) => {
   const { id } = req.params;
-  const { materialsCost, materialDetails, extraLaborCharge, workNotes } = req.body;
+  const { materialsCost, materialDetails, workNotes } = req.body;
 
   const booking = store.bookings.find(b => b.id === id);
   if (!booking) {
@@ -452,14 +526,16 @@ app.post('/api/bookings/:id/generate-bill', (req, res) => {
   }
 
   const matCost = parseFloat(materialsCost) || 0;
-  const extraLabor = parseFloat(extraLaborCharge) || 0;
-  const baseFee = booking.pricing?.baseFee || 150;
-  const distanceCharge = booking.pricing?.distanceCharge || 30;
+  const inviteFee = booking.pricing?.inviteFee || calculateInviteFee(booking.pricing?.distanceKm || 1.2);
+  const labourCost = booking.pricing?.labourCost || 450;
   const distanceKm = booking.pricing?.distanceKm || 1.2;
+  const alreadyPaidAmount = booking.pricing?.totalAmount || Math.round((inviteFee + labourCost) * 1.05);
 
-  const grossTotal = baseFee + distanceCharge + matCost + extraLabor;
-  const serviceTax = Math.round(grossTotal * 0.05);
-  const grandTotal = grossTotal + serviceTax;
+  // Material cost calculation (Only charge additional material cost to customer)
+  const materialTax = Math.round(matCost * 0.05);
+  const amountDueNow = matCost + materialTax;
+
+  const grandTotal = alreadyPaidAmount + amountDueNow;
 
   const coopPlatformFee = parseFloat((grandTotal * 0.05).toFixed(2));
   const welfareContribution = parseFloat((grandTotal * 0.05).toFixed(2));
@@ -468,33 +544,35 @@ app.post('/api/bookings/:id/generate-bill', (req, res) => {
   const receipt = {
     receiptNo: `RCT-${Math.floor(1000 + Math.random() * 9000)}`,
     generatedAt: new Date().toISOString(),
-    baseFee,
+    inviteFee,
+    labourCost,
     distanceKm,
-    distanceCharge,
+    alreadyPaidAmount,
     materialsCost: matCost,
     materialDetails: materialDetails || 'Material & spare parts used for repair',
-    extraLaborCharge: extraLabor,
+    materialTax,
+    amountDueNow,
     workNotes: workNotes || 'Job completed successfully by verified technician.',
-    grossTotal,
-    serviceTax,
     grandTotal,
     coopPlatformFee,
     welfareContribution,
     workerPayout,
-    status: 'PENDING_CUSTOMER_PAYMENT'
+    status: matCost > 0 ? 'PENDING_MATERIAL_PAYMENT' : 'PAID'
   };
 
   booking.finalReceipt = receipt;
-  booking.status = 'BILL_GENERATED';
+  booking.status = matCost > 0 ? 'MATERIAL_REQUESTED' : 'COMPLETED';
   booking.pricing = {
     ...booking.pricing,
+    materialsCost: matCost,
+    amountDueNow,
     totalAmount: grandTotal,
     workerPayout,
     welfareContribution,
     coopPlatformFee
   };
 
-  res.json({ success: true, message: 'Digital receipt generated successfully', booking, receipt });
+  res.json({ success: true, message: 'Digital receipt / Material request generated successfully', booking, receipt });
 });
 
 // 10C. Customer Pays Final Bill Receipt
@@ -546,17 +624,66 @@ app.get('/api/bookings', (req, res) => {
   const { workerId, customerId } = req.query;
   let results = store.bookings;
   if (workerId) {
-    results = results.filter(b => b.workerId === workerId);
+    results = results.filter(b => String(b.workerId) === String(workerId));
   }
   if (customerId) {
-    results = results.filter(b => b.customerId === customerId);
+    results = results.filter(b => String(b.customerId) === String(customerId));
   }
   res.json(results);
 });
 
+// Public, read-only review feed for the technician profile shown before booking.
+app.get('/api/workers/:workerId/reviews', (req, res) => {
+  const param = String(req.params.workerId).toLowerCase().trim();
+  const worker = store.workers.find(w => 
+    String(w.id).toLowerCase() === param || 
+    w.name?.toLowerCase() === param
+  );
+  
+  const targetWorkerId = worker ? String(worker.id).toLowerCase() : param;
+  const targetWorkerName = worker ? worker.name?.toLowerCase() : param;
+
+  const bookingReviews = store.bookings
+    .filter(b => {
+      const matchId = b.workerId && String(b.workerId).toLowerCase() === targetWorkerId;
+      const matchName = b.workerName && (b.workerName.toLowerCase() === targetWorkerName || b.workerName.toLowerCase() === param);
+      const hasContent = (b.workerRating || (b.workerFeedback && b.workerFeedback.trim() !== ''));
+      return (matchId || matchName) && hasContent;
+    })
+    .map(b => ({
+      rating: b.workerRating || 5,
+      feedback: b.workerFeedback || '',
+      serviceName: b.serviceName || 'Household Service',
+      customerName: b.customerName || 'Customer',
+      customerPhoto: b.customerPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+      date: 'Recently'
+    }));
+
+  if (!store.reviews) store.reviews = [];
+  const standaloneReviews = store.reviews.filter(r => 
+    (r.workerId && String(r.workerId).toLowerCase() === param) ||
+    (r.workerName && r.workerName.toLowerCase() === param) ||
+    (targetWorkerId && String(r.workerId).toLowerCase() === targetWorkerId) ||
+    (targetWorkerName && r.workerName?.toLowerCase() === targetWorkerName)
+  );
+
+  const workerDirectReviews = worker?.reviews || [];
+
+  const reviewsMap = new Map();
+  [...bookingReviews, ...workerDirectReviews, ...standaloneReviews].forEach(r => {
+    const key = `${r.customerName}-${r.rating}-${r.feedback}`;
+    if (!reviewsMap.has(key)) {
+      reviewsMap.set(key, r);
+    }
+  });
+
+  const combinedReviews = Array.from(reviewsMap.values());
+  res.json({ reviews: combinedReviews });
+});
+
 // 12A. Customer Rates Worker
 app.post('/api/ratings', (req, res) => {
-  const { bookingId, workerId, rating, feedback } = req.body;
+  const { bookingId, workerId, rating, feedback, customerName, customerPhoto } = req.body;
   const numRating = parseInt(rating) || 5;
 
   const booking = store.bookings.find(b => b.id === bookingId);
@@ -565,12 +692,38 @@ app.post('/api/ratings', (req, res) => {
     booking.workerFeedback = feedback || '';
   }
 
-  const worker = store.workers.find(w => w.id === workerId);
+  const targetWorkerId = workerId || booking?.workerId;
+  const targetWorkerName = booking?.workerName || workerId;
+
+  const worker = store.workers.find(w => 
+    (targetWorkerId && String(w.id).toLowerCase() === String(targetWorkerId).toLowerCase()) ||
+    (targetWorkerName && (w.name === targetWorkerName || w.name?.toLowerCase() === targetWorkerName?.toLowerCase()))
+  );
+
+  const newReview = {
+    workerId: targetWorkerId,
+    workerName: targetWorkerName,
+    rating: numRating,
+    feedback: feedback?.trim() || '',
+    serviceName: booking?.serviceName || 'Household Service',
+    customerName: customerName || booking?.customerName || 'Customer',
+    customerPhoto: customerPhoto || booking?.customerPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+    date: 'Just now'
+  };
+
   if (worker) {
-    const currentTotal = worker.rating * (worker.jobsCompleted || 1);
-    worker.rating = parseFloat(((currentTotal + numRating) / ((worker.jobsCompleted || 1) + 1)).toFixed(2));
+    const currentJobs = worker.jobsCompleted || 1;
+    const currentTotal = (worker.rating || 5.0) * currentJobs;
+    worker.jobsCompleted = currentJobs + 1;
+    worker.rating = parseFloat(((currentTotal + numRating) / worker.jobsCompleted).toFixed(2));
+    worker.reviews = worker.reviews || [];
+    worker.reviews.unshift(newReview);
   }
-  res.json({ success: true, message: 'Worker rating submitted successfully' });
+
+  if (!store.reviews) store.reviews = [];
+  store.reviews.unshift(newReview);
+
+  res.json({ success: true, message: 'Worker rating submitted successfully', booking, worker, review: newReview });
 });
 
 // 12B. Worker Rates Customer (Mutual Rating System)
@@ -714,6 +867,25 @@ app.post('/api/complaints/resolve', (req, res) => {
   complaint.coopNotes = notes || 'Resolved by Cooperative Committee';
   complaint.resolvedAt = new Date().toISOString();
   res.json({ success: true, complaint });
+});
+
+// 20. Worker Verify / Update verification status (admin/cooperative)
+app.post('/api/workers/verify', (req, res) => {
+  const { workerId, status, notes } = req.body;
+  const worker = store.workers.find(w => w.id === workerId);
+  if (!worker) {
+    return res.status(404).json({ error: 'Worker not found' });
+  }
+  if (status) worker.verificationStatus = status;
+  if (notes) worker.verificationNotes = notes;
+  worker.updatedAt = new Date().toISOString();
+  res.json({ success: true, worker });
+});
+
+// Global Express error handler — prevents unhandled route errors from crashing the server
+app.use((err, req, res, next) => {
+  console.error('[EXPRESS ERROR]', err.message, err.stack);
+  res.status(500).json({ error: 'Internal server error', details: err.message });
 });
 
 // Start Express Server

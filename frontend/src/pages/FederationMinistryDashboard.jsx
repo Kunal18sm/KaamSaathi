@@ -32,14 +32,14 @@ export default function FederationMinistryDashboard({ t }) {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7 max-w-7xl mx-auto py-3 sm:py-5">
       {/* Top Header */}
-      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-2xl border border-blue-800/50">
+      <div className="bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-950 text-white rounded-3xl p-5 sm:p-7 shadow-lg border border-blue-800/50">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <div className="flex items-center gap-2">
               <Building2 className="w-6 h-6 text-blue-400" />
-              <h1 className="text-xl sm:text-2xl font-bold">{t.federation.ministryName}</h1>
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">{t.federation.ministryName}</h1>
             </div>
             <p className="text-blue-200 text-xs sm:text-sm mt-1">
               National & State Level Aggregated Cooperative Worker Platform Analytics

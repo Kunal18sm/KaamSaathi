@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   CheckCircle, DollarSign, Shield, Award, MapPin, Phone, AlertOctagon, 
-  Calendar, Clock, UserCheck, ToggleLeft, ToggleRight, AlertTriangle, Inbox,
+  Calendar, Clock, User, UserCheck, ToggleLeft, ToggleRight, AlertTriangle, Inbox,
   Navigation, Crosshair, ExternalLink, X, Volume2, BellRing, Radio, PhoneCall, CheckCircle2,
   Receipt, Star, FileText, Calculator, Send
 } from 'lucide-react';
@@ -72,12 +72,15 @@ export function triggerJobAlert({ isEmergency = false } = {}) {
   }
 }
 
-export default function WorkerPortal({ t }) {
+export default function WorkerPortal({ t, onOpenProfile }) {
   const { user } = useAuth();
   const [isAvailable, setIsAvailable] = useState(user?.availability ?? true);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newJobNotification, setNewJobNotification] = useState(null);
+
+  // Tab State for Queue: 'ACTIVE' (Live Work) vs 'HISTORY' (Completed / Past Work)
+  const [activeTab, setActiveTab] = useState('ACTIVE');
 
   // Keep track of known job IDs to detect fresh dispatches in real-time
   const knownJobIdsRef = useRef(new Set());
@@ -94,12 +97,12 @@ export default function WorkerPortal({ t }) {
 
   // Job Detail & Navigation Modal State
   const [selectedJobForNavigation, setSelectedJobForNavigation] = useState(null);
+  const [selectedCustomerDetails, setSelectedCustomerDetails] = useState(null);
 
   // Generate Digital Receipt / Bill Modal State
   const [selectedJobForBill, setSelectedJobForBill] = useState(null);
   const [materialsCost, setMaterialsCost] = useState('250');
   const [materialDetails, setMaterialDetails] = useState('Spare parts & replacement wiring');
-  const [extraLaborCharge, setExtraLaborCharge] = useState('100');
   const [workNotes, setWorkNotes] = useState('Job completed successfully.');
 
   // Rate Customer Modal State
@@ -138,18 +141,31 @@ export default function WorkerPortal({ t }) {
   const fetchAssignedJobs = async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`/api/bookings?workerId=${user.id}`);
+      const res = await fetch(`/api/bookings?workerId=${encodeURIComponent(user.id)}&_=${Date.now()}`, {
+        cache: 'no-store'
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const currentJobs = Array.isArray(data) ? data : [];
       setJobs(currentJobs);
 
-      // Check for newly assigned jobs
+      const assignedJobs = currentJobs.filter(job =>
+        job.status === 'ASSIGNED' || job.status === 'PENDING' || job.status === 'PENDING_ACCEPT'
+      );
+
+      // A worker who opens the portal after the booking was made must still see
+      // the dispatch alert, not only the job card in the queue.
+      if (isFirstLoadRef.current && assignedJobs.length > 0) {
+        setNewJobNotification(assignedJobs[0]);
+      }
+
+      // Check for newly assigned jobs while the portal is already open.
       currentJobs.forEach(job => {
         if (!knownJobIdsRef.current.has(job.id)) {
           knownJobIdsRef.current.add(job.id);
 
           // If this is NOT the very first fetch on mount, trigger sound & vibration alert!
-          if (!isFirstLoadRef.current && (job.status === 'ASSIGNED' || job.status === 'PENDING' || job.status === 'COMPLETED' || job.status === 'ACCEPTED')) {
+          if (!isFirstLoadRef.current && (job.status === 'ASSIGNED' || job.status === 'PENDING' || job.status === 'ACCEPTED')) {
             triggerJobAlert({ isEmergency: job.emergency });
             setNewJobNotification(job);
           }
@@ -159,7 +175,7 @@ export default function WorkerPortal({ t }) {
       isFirstLoadRef.current = false;
       setLoading(false);
     } catch (err) {
-      console.error(err);
+      console.error('Error fetching assigned jobs:', err);
       setLoading(false);
     }
   };
@@ -170,6 +186,22 @@ export default function WorkerPortal({ t }) {
     const interval = setInterval(fetchAssignedJobs, 3000);
     return () => clearInterval(interval);
   }, [user?.id]);
+
+  const handleAvailabilityChange = async () => {
+    const nextAvailability = !isAvailable;
+    try {
+      const res = await fetch(`/api/workers/${encodeURIComponent(user.id)}/availability`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ availability: nextAvailability })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || 'Could not update availability');
+      setIsAvailable(data.worker.availability);
+    } catch (err) {
+      console.error('Availability update error:', err);
+    }
+  };
 
   const handleAcceptJob = async (jobId) => {
     try {
@@ -186,7 +218,23 @@ export default function WorkerPortal({ t }) {
         }
       }
     } catch (err) {
-      console.error(err);
+      console.error('Error accepting job:', err);
+    }
+  };
+
+  const handleCompleteJob = async (jobId) => {
+    try {
+      const res = await fetch(`/api/bookings/${jobId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'COMPLETED' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setJobs(jobs.map(j => j.id === jobId ? { ...j, status: 'COMPLETED' } : j));
+      }
+    } catch (err) {
+      console.error('Error completing job:', err);
     }
   };
 
@@ -197,9 +245,8 @@ export default function WorkerPortal({ t }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          materialsCost: parseFloat(materialsCost) || 0,
+          materialsCost: Math.max(0, parseFloat(materialsCost) || 0),
           materialDetails,
-          extraLaborCharge: parseFloat(extraLaborCharge) || 0,
           workNotes
         })
       });
@@ -246,40 +293,55 @@ export default function WorkerPortal({ t }) {
   const weeklyEarnings = user?.weeklyEarnings || todayEarnings;
   const welfareBalance = user?.welfare?.fundBalance || 0;
   const insuranceActive = user?.welfare?.insuranceActive || false;
-  const policyNo = user?.welfare?.insurancePolicyNo || 'Pending Verification';
+
+  // Separate Active vs Completed History Jobs
+  const activeJobs = jobs.filter(j => 
+    j.status === 'ASSIGNED' || 
+    j.status === 'ACCEPTED' || 
+    j.status === 'BILL_GENERATED' || 
+    j.status === 'MATERIAL_REQUESTED' || 
+    j.status === 'PENDING' || 
+    j.status === 'PENDING_ACCEPT'
+  );
+
+  const historyJobs = jobs.filter(j => 
+    j.status === 'COMPLETED' || 
+    j.status === 'CANCELLED'
+  );
+
+  const displayedJobs = activeTab === 'ACTIVE' ? activeJobs : historyJobs;
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto py-3 sm:py-5">
       {/* REAL-TIME JOB ALERT POPUP BANNER / MODAL */}
       {newJobNotification && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 max-w-md w-full px-4 z-50 animate-bounce">
-          <div className={`p-5 rounded-3xl shadow-2xl border text-white space-y-3 relative ${
+        <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+          <div className={`p-4 rounded-2xl shadow-2xl border text-white space-y-2 relative ${
             newJobNotification.emergency 
               ? 'bg-gradient-to-r from-red-700 via-rose-800 to-red-900 border-red-400 ring-4 ring-red-500/40' 
               : 'bg-gradient-to-r from-emerald-700 to-teal-800 border-emerald-400 ring-4 ring-emerald-500/30'
           }`}>
             <button 
               onClick={() => setNewJobNotification(null)}
-              className="absolute top-3 right-3 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition"
+              className="absolute top-3 right-3 p-1 rounded-full bg-white/20 hover:bg-white/30 text-white transition"
             >
               <X className="w-4 h-4" />
             </button>
 
             <div className="flex items-center gap-2">
               {newJobNotification.emergency ? (
-                <AlertOctagon className="w-6 h-6 text-yellow-300 animate-pulse shrink-0" />
+                <AlertOctagon className="w-5 h-5 text-yellow-300 animate-pulse shrink-0" />
               ) : (
-                <BellRing className="w-6 h-6 text-emerald-200 animate-pulse shrink-0" />
+                <BellRing className="w-5 h-5 text-emerald-200 animate-pulse shrink-0" />
               )}
               <div>
-                <h3 className="font-black text-base leading-tight">
+                <h3 className="font-black text-sm leading-tight">
                   {newJobNotification.emergency ? 'URGENT EMERGENCY DISPATCH' : 'NEW WORK ASSIGNED TO YOU'}
                 </h3>
-                <p className="text-xs text-white/90">Your phone is vibrating and sounding alert tune</p>
               </div>
             </div>
 
-            <div className="bg-black/25 backdrop-blur-md rounded-2xl p-3.5 space-y-1.5 text-xs">
+            <div className="bg-black/25 backdrop-blur-md rounded-xl p-3 space-y-1 text-xs">
               <div className="flex justify-between font-bold">
                 <span className="text-white text-sm">{newJobNotification.serviceName || newJobNotification.service}</span>
                 <span className="text-yellow-300 font-extrabold text-sm">Rs. {newJobNotification.pricing?.workerPayout || 427.50}</span>
@@ -291,22 +353,13 @@ export default function WorkerPortal({ t }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                onClick={() => triggerJobAlert({ isEmergency: newJobNotification.emergency })}
-                className="px-3 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-bold flex items-center gap-1 transition"
-                title="Re-play alert sound and vibration"
-              >
-                <Volume2 className="w-4 h-4" />
-                Sound & Vibrate
-              </button>
-
+            <div className="pt-1">
               <button
                 onClick={() => {
                   handleAcceptJob(newJobNotification.id);
                   setSelectedJobForNavigation(newJobNotification);
                 }}
-                className="flex-1 py-2 bg-white text-gray-900 hover:bg-gray-100 rounded-xl font-extrabold text-xs shadow-lg flex items-center justify-center gap-1.5 transition"
+                className="w-full py-2 bg-white text-gray-900 hover:bg-gray-100 rounded-xl font-extrabold text-xs shadow-md flex items-center justify-center gap-1.5 transition"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 Accept & View Route Map
@@ -316,294 +369,330 @@ export default function WorkerPortal({ t }) {
         </div>
       )}
 
-      {/* Worker Profile Header */}
-      <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <img
-            src={user?.photo || "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&q=80&w=200"}
-            alt={user?.name || "Worker"}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-4 border-emerald-500 shadow-md shrink-0"
-          />
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Welcome, {user?.name || 'Technician'}</h1>
-              {isVerified ? (
-                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <UserCheck className="w-3.5 h-3.5" />
-                  VERIFIED COOP TECHNICIAN
+      {/* Compact Worker Profile Header */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-200 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <img
+              src={user?.photo || "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&q=80&w=200"}
+              alt={user?.name || "Worker"}
+              className="w-12 h-12 rounded-full object-cover border-2 border-emerald-500 shadow-sm shrink-0"
+            />
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base font-bold text-gray-900">{user?.name || 'Technician'}</h1>
+                {isVerified ? (
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <UserCheck className="w-3 h-3" />
+                    VERIFIED
+                  </span>
+                ) : (
+                  <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    PENDING
+                  </span>
+                )}
+                <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                  {Number(user?.rating) > 0 ? user.rating : 'New'}
                 </span>
-              ) : (
-                <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  VERIFICATION PENDING REVIEW
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Member: <span className="font-semibold text-emerald-800">{user?.coopName || 'Cooperative Society Member'}</span>
-            </p>
-            <div className="text-xs text-gray-600 mt-0.5">
-              Skills: {user?.skills?.join(', ') || 'Household Technical Services'} | Experience: {user?.experienceYears || 1} Years
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {user?.coopName || 'Cooperative Member'}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Availability Status Toggle & Test Sound Button */}
-        <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
-          <button
-            onClick={() => triggerJobAlert({ isEmergency: false })}
-            className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 text-xs font-bold flex items-center justify-center gap-1.5 transition"
-            title="Test alert sound chime & vibration on your phone"
-          >
-            <Volume2 className="w-4 h-4 text-purple-600" />
-            Test Sound & Vibration
-          </button>
+        {/* Equal Full-Width Header Buttons (My Profile + Active Toggle) */}
+        <div className="flex items-center gap-3 w-full pt-2.5 border-t border-gray-100">
+          {onOpenProfile && (
+            <button
+              onClick={onOpenProfile}
+              className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition"
+            >
+              <User className="w-4 h-4 text-slate-600" />
+              My Profile
+            </button>
+          )}
 
           <button
-            onClick={() => setIsAvailable(!isAvailable)}
-            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition ${
+            onClick={handleAvailabilityChange}
+            className={`flex-1 py-2 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2 border transition ${
               isAvailable 
-                ? 'bg-emerald-600 text-white border-emerald-700 shadow-lg shadow-emerald-500/20'
+                ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
                 : 'bg-gray-100 text-gray-600 border-gray-300'
             }`}
           >
-            {isAvailable ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
-            {isAvailable ? (t?.worker?.statusAvailable || 'ACTIVE & READY FOR WORK') : (t?.worker?.statusBusy || 'OFF DUTY')}
+            {isAvailable ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+            {isAvailable ? 'ACTIVE & READY' : 'OFF DUTY'}
           </button>
         </div>
       </div>
 
-      {/* Verification Notice for newly registered technicians */}
-      {!isVerified && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div>
-            <div className="font-bold text-sm text-amber-900">Certificate Verification in Progress</div>
-            <p className="mt-0.5 text-amber-800">
-              Your trade documents have been submitted to <strong>{user?.coopName || 'your Cooperative Society'}</strong>. Once the committee inspects and approves your certificates, dispatch allocations will be enabled.
-            </p>
+      {/* Perfectly Centered 2x2 Metric Cards (Tight padding, centered icon + number) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="bg-white rounded-2xl p-3 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center space-y-1">
+          <div className="text-[10px] font-bold text-gray-500 uppercase flex items-center justify-center gap-1">
+            <DollarSign className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Today</span>
+          </div>
+          <div className="text-lg sm:text-xl font-black text-gray-900">Rs. {todayEarnings}</div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-3 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center space-y-1">
+          <div className="text-[10px] font-bold text-gray-500 uppercase flex items-center justify-center gap-1">
+            <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span>Weekly</span>
+          </div>
+          <div className="text-lg sm:text-xl font-black text-gray-900">Rs. {weeklyEarnings}</div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-3 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center space-y-1">
+          <div className="text-[10px] font-bold text-gray-500 uppercase flex items-center justify-center gap-1">
+            <Shield className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+            <span>Welfare</span>
+          </div>
+          <div className="text-lg sm:text-xl font-black text-purple-900">Rs. {welfareBalance}</div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-3 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center space-y-1">
+          <div className="text-[10px] font-bold text-gray-500 uppercase flex items-center justify-center gap-1">
+            <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span>Insurance</span>
+          </div>
+          <div className="text-sm font-extrabold text-emerald-700 flex items-center justify-center gap-1">
+            <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+            {insuranceActive ? 'Active' : 'Pending'}
           </div>
         </div>
-      )}
+      </div>
 
-      {/* LIVE MAP & LOCATION COVERAGE PANEL */}
-      <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-200 space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-emerald-600" />
-              Live Technician Location & Service Radar
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {locationAddress} • 5 km automated job dispatch radius
-            </p>
+      {/* Service Job Queue (Separated Active Work vs Job History Tabs) */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-200 space-y-4">
+        {/* Header & Tab Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <BellRing className="w-5 h-5 text-emerald-600" />
+            <h2 className="text-base font-bold text-gray-900">Worker Job Queue</h2>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${
-              locationStatus === 'DETECTED' ? 'bg-emerald-100 text-emerald-800' :
-              locationStatus === 'LOCATING' ? 'bg-blue-100 text-blue-800 animate-pulse' :
-              'bg-gray-100 text-gray-700'
-            }`}>
-              <Crosshair className="w-3.5 h-3.5" />
-              {locationStatus === 'DETECTED' ? 'GPS Active' : locationStatus === 'LOCATING' ? 'Locating...' : 'Default GPS'}
-            </span>
+          {/* Queue Filter Tabs: Active Jobs vs History */}
+          <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl text-xs font-bold self-start sm:self-auto">
+            <button
+              onClick={() => setActiveTab('ACTIVE')}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'ACTIVE'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <span>Live Work</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                activeTab === 'ACTIVE' ? 'bg-emerald-700 text-white' : 'bg-gray-200 text-gray-700'
+              }`}>
+                {activeJobs.length}
+              </span>
+            </button>
 
             <button
-              onClick={detectLiveLocation}
-              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1 transition"
+              onClick={() => setActiveTab('HISTORY')}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                activeTab === 'HISTORY'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
             >
-              Update Location
+              <span>Job History</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                activeTab === 'HISTORY' ? 'bg-emerald-700 text-white' : 'bg-gray-200 text-gray-700'
+              }`}>
+                {historyJobs.length}
+              </span>
             </button>
           </div>
         </div>
 
-        {/* Leaflet Live Map plotted at worker's position */}
-        <ServiceMap 
-          center={workerCoords} 
-          centerTitle={`Your Location: ${user?.name || 'Technician'}`}
-          showRadius={true}
-        />
-      </div>
-
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm space-y-2">
-          <div className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1.5">
-            <DollarSign className="w-4 h-4 text-emerald-600" />
-            Today's Earnings
-          </div>
-          <div className="text-2xl font-extrabold text-gray-900">Rs. {todayEarnings}</div>
-          <div className="text-xs text-emerald-600 font-semibold">{jobs.filter(j => j.status === 'COMPLETED').length} jobs completed today</div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm space-y-2">
-          <div className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1.5">
-            <Calendar className="w-4 h-4 text-blue-600" />
-            Weekly Earnings
-          </div>
-          <div className="text-2xl font-extrabold text-gray-900">Rs. {weeklyEarnings}</div>
-          <div className="text-xs text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded-full inline-block">
-            Priority Fair Allocation Active
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm space-y-2">
-          <div className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1.5">
-            <Shield className="w-4 h-4 text-purple-600" />
-            Welfare Fund Balance
-          </div>
-          <div className="text-2xl font-extrabold text-purple-900">Rs. {welfareBalance}</div>
-          <div className="text-xs text-purple-700 font-semibold">5% auto-credited per booking</div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm space-y-2">
-          <div className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1.5">
-            <Award className="w-4 h-4 text-amber-500" />
-            Insurance Status
-          </div>
-          <div className="text-sm font-extrabold text-emerald-700 flex items-center gap-1">
-            <CheckCircle className="w-4 h-4" />
-            {insuranceActive ? 'PMJJBY Active' : 'Application in Review'}
-          </div>
-          <div className="text-xs text-gray-500">Policy: {policyNo}</div>
-        </div>
-      </div>
-
-      {/* Assigned Job Queue */}
-      <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-200 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-            <BellRing className="w-5 h-5 text-emerald-600" />
-            <span>Assigned Service Job Queue</span>
-          </h2>
-          <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-            Real-time Live Feed
-          </span>
-        </div>
-
         {loading ? (
-          <div className="py-8 text-center text-xs text-gray-400">Loading assigned jobs...</div>
-        ) : jobs.length === 0 ? (
+          <div className="py-8 text-center text-xs text-gray-400">Loading jobs...</div>
+        ) : displayedJobs.length === 0 ? (
           <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200 space-y-2">
             <Inbox className="w-8 h-8 text-gray-400 mx-auto" />
-            <div className="font-bold text-sm text-gray-700">No Jobs Assigned Currently</div>
+            <div className="font-bold text-sm text-gray-700">
+              {activeTab === 'ACTIVE' ? 'No Active Work Requests' : 'No Past Job History Yet'}
+            </div>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {isVerified 
-                ? "When customers book services matching your trade skills, job alerts will trigger sound tunes & device vibration in real-time."
-                : "Your account is pending verification by the cooperative committee. Once approved, you will receive customer service requests."}
+              {activeTab === 'ACTIVE' 
+                ? "When customers book services in your trade skills, new live jobs will appear here automatically."
+                : "Completed and closed job orders will be archived here in your job history."}
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {jobs.map((j) => (
-              <div key={j.id} className={`p-4 rounded-2xl border transition flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${
-                j.emergency 
-                  ? 'border-red-300 bg-red-50/50 shadow-sm' 
-                  : 'border-gray-200 hover:border-emerald-300 bg-gray-50/50'
-              }`}>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-sm sm:text-base text-gray-900">{j.serviceName || j.service}</span>
+          <div className="space-y-4">
+            {displayedJobs.map((j) => (
+              <div 
+                key={j.id} 
+                className={`p-4 rounded-2xl border transition space-y-3 ${
+                  j.emergency 
+                    ? 'border-red-300 bg-red-50/40 shadow-sm' 
+                    : 'border-slate-200 hover:border-emerald-300 bg-white shadow-sm'
+                }`}
+              >
+                {/* Card Header: Service Title, Badges, & Payout */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-base text-slate-900">{j.serviceName || j.service}</h3>
                     <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
                       j.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-800' : 
-                      j.status === 'BILL_GENERATED' ? 'bg-purple-100 text-purple-800' :
-                      j.status === 'COMPLETED' ? 'bg-gray-200 text-gray-700' : 'bg-amber-100 text-amber-800'
+                      j.status === 'BILL_GENERATED' || j.status === 'MATERIAL_REQUESTED' ? 'bg-purple-100 text-purple-800' :
+                      j.status === 'COMPLETED' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'
                     }`}>
-                      {j.status === 'BILL_GENERATED' ? 'BILL SENT' : j.status}
+                      {j.status === 'BILL_GENERATED' || j.status === 'MATERIAL_REQUESTED' ? 'MATERIAL REQUESTED' : j.status}
                     </span>
                     {j.emergency && (
-                      <span className="text-xs px-2.5 py-0.5 rounded-full font-extrabold bg-red-600 text-white animate-pulse">
-                        EMERGENCY DISPATCH
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full font-extrabold bg-red-600 text-white animate-pulse">
+                        EMERGENCY
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-600 mt-1 flex flex-wrap items-center gap-2">
-                    <span>Customer: <strong className="text-gray-900">{j.customerName}</strong> ({j.customerPhone})</span>
-                    {j.scheduledDate && <span>• Slot: {j.scheduledDate} ({j.scheduledSlot})</span>}
+
+                  {/* Net Payout formatted clearly on one line */}
+                  <div className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl">
+                    <span className="text-[11px] text-slate-500 font-semibold">Worker Payout:</span>
+                    <span className="text-base font-black text-emerald-800">Rs. {j.pricing?.workerPayout || j.payout || 427.50}</span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      {j.address}
-                    </span>
-                    {j.pricing?.distanceKm && (
-                      <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-200">
-                        {j.pricing.distanceKm} km travel (Rs. {j.pricing.distanceCharge} fare)
+                </div>
+
+                {/* Customer Info & Fee Badges */}
+                <div className="grid gap-3 text-xs sm:grid-cols-[1fr_auto] sm:items-center">
+                  <div className="space-y-0.5">
+                    <div className="text-slate-700">
+                      Customer: <strong className="text-slate-900">{j.customerName}</strong> ({j.customerPhone})
+                    </div>
+                    {j.address && !j.address.startsWith('Current GPS:') && (
+                      <div className="flex items-start gap-1 text-slate-600">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="leading-4">{j.address}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
+                    {j.pricing?.inviteFee && (
+                      <span className="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg border border-emerald-200">
+                        Invite Fee: Rs. {j.pricing.inviteFee}
+                      </span>
+                    )}
+                    {j.pricing?.labourCost && (
+                      <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200">
+                        Labour: Rs. {j.pricing.labourCost}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                  <div className="text-left sm:text-right">
-                    <div className="text-base font-extrabold text-emerald-700">Rs. {j.pricing?.workerPayout || j.payout || 427.50}</div>
-                    <div className="text-[10px] text-gray-400">Net Worker Payout</div>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* Trigger sound test for this specific job */}
-                    <button
-                      onClick={() => triggerJobAlert({ isEmergency: j.emergency })}
-                      className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition"
-                      title="Play alert sound for this job"
-                    >
-                      <Volume2 className="w-4 h-4 text-emerald-600" />
-                    </button>
-
-                    {/* Open Work Location Map Modal Button */}
-                    <button
-                      onClick={() => setSelectedJobForNavigation(j)}
-                      className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                    >
-                      <Navigation className="w-3.5 h-3.5 text-emerald-600" />
-                      View Map
-                    </button>
-
-                    {j.status === 'ASSIGNED' || j.status === 'PENDING_ACCEPT' || j.status === 'PENDING' ? (
-                      <button
-                        onClick={() => handleAcceptJob(j.id)}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition"
+                {/* Embedded Map: Direct Route from Worker GPS to Customer Destination */}
+                {activeTab === 'ACTIVE' && (
+                  <div className="pt-2 space-y-2">
+                    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between text-xs font-bold text-slate-700">
+                      <span className="flex items-center gap-1 text-emerald-800">
+                        <Navigation className="w-3.5 h-3.5 text-emerald-600" />
+                        Route Map to Customer Destination
+                      </span>
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&origin=${workerCoords[0]},${workerCoords[1]}&destination=${j.latitude || 28.6100},${j.longitude || 77.2050}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] font-bold text-blue-700 hover:text-blue-800 flex items-center gap-1"
                       >
-                        Accept Job
-                      </button>
-                    ) : null}
+                        Open Google Maps <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
 
-                    {j.status === 'ACCEPTED' && (
+                    <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-inner h-52 sm:h-60">
+                      <ServiceMap
+                        center={workerCoords}
+                        centerTitle="You (Technician)"
+                        destinationCoords={[j.latitude || 28.6100, j.longitude || 77.2050]}
+                        destinationTitle={`Work Location (${j.customerName})`}
+                        showRoute={true}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons Row */}
+                <div className="pt-3 flex flex-col sm:flex-row sm:flex-wrap sm:justify-end items-stretch sm:items-center gap-2 border-t border-slate-100">
+                  <button
+                    onClick={() => setSelectedCustomerDetails(j)}
+                    className="w-full sm:w-auto px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1"
+                  >
+                    <User className="w-3.5 h-3.5 text-emerald-600" />
+                    Customer Details
+                  </button>
+
+                  {(j.status === 'ASSIGNED' || j.status === 'PENDING_ACCEPT' || j.status === 'PENDING') && (
+                    <button
+                      onClick={() => handleAcceptJob(j.id)}
+                      className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md transition"
+                    >
+                      Accept Job Order
+                    </button>
+                  )}
+
+                  {j.status === 'ACCEPTED' && (
+                    <>
                       <button
                         onClick={() => setSelectedJobForBill(j)}
-                        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition"
+                        className="w-full sm:w-auto px-4 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition"
                       >
-                        <Receipt className="w-3.5 h-3.5" />
-                        Complete & Issue Bill
+                        <Receipt className="w-4 h-4" />
+                        Request Material
                       </button>
-                    )}
 
-                    {j.status === 'BILL_GENERATED' && (
-                      <span className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-amber-600 animate-spin" />
-                        Awaiting Customer Payment
+                      <button
+                        onClick={() => handleCompleteJob(j.id)}
+                        className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Mark Work Completed
+                      </button>
+                    </>
+                  )}
+
+                  {(j.status === 'BILL_GENERATED' || j.status === 'MATERIAL_REQUESTED') && (
+                    <>
+                      <span className="w-full sm:w-auto px-3.5 py-2.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
+                        <Clock className="w-4 h-4 text-amber-600 animate-spin" />
+                        Awaiting Material Payment
                       </span>
-                    )}
 
-                    {j.status === 'COMPLETED' && (
-                      j.customerRating ? (
-                        <span className="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1">
-                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          Customer Rated: {j.customerRating}★
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setSelectedJobForRating(j)}
-                          className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                        >
-                          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                          Rate Customer
-                        </button>
-                      )
-                    )}
-                  </div>
+                      <button
+                        onClick={() => handleCompleteJob(j.id)}
+                        className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Mark Work Completed
+                      </button>
+                    </>
+                  )}
+
+                  {j.status === 'COMPLETED' && (
+                    j.customerRating ? (
+                      <span className="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        Rated: {j.customerRating}★
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setSelectedJobForRating(j)}
+                        className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                      >
+                        <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                        Rate Customer
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
             ))}
@@ -611,7 +700,70 @@ export default function WorkerPortal({ t }) {
         )}
       </div>
 
-      {/* MODAL 1: GENERATE DIGITAL RECEIPT & WORK EXPENSE BILL */}
+      {/* MODAL: CUSTOMER DETAILS */}
+      {selectedCustomerDetails && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 relative border border-slate-100">
+            <button
+              onClick={() => setSelectedCustomerDetails(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div>
+              <span className="text-[10px] font-black px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full uppercase tracking-wider">
+                Customer Contact & Location Info
+              </span>
+              <h3 className="font-extrabold text-xl text-slate-900 mt-1">Customer Details</h3>
+              <p className="text-xs text-slate-500">Booking ID: #{selectedCustomerDetails.id}</p>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2.5 text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Customer Name:</span>
+                <span className="font-extrabold text-slate-900 text-sm">{selectedCustomerDetails.customerName}</span>
+              </div>
+
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Contact Phone:</span>
+                <a href={`tel:${selectedCustomerDetails.customerPhone}`} className="font-bold text-emerald-700 flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5" />
+                  {selectedCustomerDetails.customerPhone}
+                </a>
+              </div>
+
+              <div className="flex justify-between items-start pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-medium shrink-0">Street / Flat Address:</span>
+                <span className="font-semibold text-slate-800 text-right max-w-xs">{selectedCustomerDetails.address}</span>
+              </div>
+
+              {selectedCustomerDetails.landmark && (
+                <div className="flex justify-between items-start pb-2 border-b border-slate-200">
+                  <span className="text-slate-500 font-medium shrink-0">Landmark:</span>
+                  <span className="font-bold text-amber-700 text-right">{selectedCustomerDetails.landmark}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Service Requested:</span>
+                <span className="font-bold text-slate-900">{selectedCustomerDetails.serviceName || selectedCustomerDetails.service}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setSelectedCustomerDetails(null)}
+                className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: REQUEST MATERIAL COST & ISSUE BILL */}
       {selectedJobForBill && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 relative border border-gray-100">
@@ -624,27 +776,27 @@ export default function WorkerPortal({ t }) {
 
             <div>
               <span className="text-xs font-extrabold px-3 py-1 bg-purple-100 text-purple-800 rounded-full uppercase tracking-wider">
-                Generate Official Digital Receipt
+                Material Cost Request
               </span>
               <h3 className="font-black text-xl text-gray-900 mt-2">
-                Work Expense & Final Receipt
+                Request Material Payment
               </h3>
               <p className="text-xs text-gray-500">Booking ID: #{selectedJobForBill.id} • Customer: {selectedJobForBill.customerName}</p>
             </div>
 
-            {/* Base & Distance Fare Summary */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2 text-xs">
-              <div className="font-bold text-slate-700 flex items-center justify-between pb-1 border-b border-slate-200">
-                <span>Fixed Fare Components</span>
-                <span className="text-[10px] text-emerald-700 font-extrabold uppercase">Calculated Fare</span>
+            {/* Invite Fee & Fixed Labour Summary - Already Paid Note */}
+            <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-200 space-y-1.5 text-xs">
+              <div className="font-bold text-emerald-900 flex items-center justify-between pb-1 border-b border-emerald-200">
+                <span>Already Paid Upfront by Customer</span>
+                <span className="text-[10px] bg-emerald-600 text-white font-extrabold px-2 py-0.5 rounded-full">PAID</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Base Inspection / Service Charge:</span>
-                <span className="font-bold text-gray-900">Rs. {selectedJobForBill.pricing?.baseFee || 150}</span>
+              <div className="flex justify-between text-gray-700">
+                <span>Invite Fee ({selectedJobForBill.pricing?.distanceKm || 1.2} km):</span>
+                <span className="font-bold">Rs. {selectedJobForBill.pricing?.inviteFee || 40}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Travel Fare ({selectedJobForBill.pricing?.distanceKm || 1.2} km @ Rs. 25/km):</span>
-                <span className="font-bold text-gray-900">Rs. {selectedJobForBill.pricing?.distanceCharge || 30}</span>
+              <div className="flex justify-between text-gray-700">
+                <span>Fixed Labour Cost:</span>
+                <span className="font-bold">Rs. {selectedJobForBill.pricing?.labourCost || 450}</span>
               </div>
             </div>
 
@@ -678,19 +830,6 @@ export default function WorkerPortal({ t }) {
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Additional Labor / Complexity Charge (Rs.)
-                </label>
-                <input
-                  type="number"
-                  value={extraLaborCharge}
-                  onChange={(e) => setExtraLaborCharge(e.target.value)}
-                  placeholder="0"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
                   Technician Work Summary & Notes
                 </label>
                 <textarea
@@ -703,29 +842,18 @@ export default function WorkerPortal({ t }) {
               </div>
             </div>
 
-            {/* Calculated Final Total Preview */}
+            {/* Calculated Material Total Preview */}
             <div className="bg-purple-900 text-white rounded-2xl p-4 space-y-1 text-xs shadow-lg">
               <div className="flex justify-between font-bold text-sm">
-                <span>Final Customer Bill Total:</span>
+                <span>Additional Material Amount Due Now:</span>
                 <span className="text-yellow-300 text-base font-black">
                   Rs. {
-                    (selectedJobForBill.pricing?.baseFee || 150) +
-                    (selectedJobForBill.pricing?.distanceCharge || 30) +
-                    (parseFloat(materialsCost) || 0) +
-                    (parseFloat(extraLaborCharge) || 0) +
-                    Math.round(((selectedJobForBill.pricing?.baseFee || 150) + (selectedJobForBill.pricing?.distanceCharge || 30) + (parseFloat(materialsCost) || 0) + (parseFloat(extraLaborCharge) || 0)) * 0.05)
+                    (parseFloat(materialsCost) || 0) + Math.round((parseFloat(materialsCost) || 0) * 0.05)
                   }
                 </span>
               </div>
               <div className="text-[11px] text-purple-200 pt-1 flex justify-between border-t border-purple-800">
-                <span>Net Technician Payout (90%):</span>
-                <span className="font-bold text-emerald-300">
-                  Rs. {
-                    parseFloat((
-                      ((selectedJobForBill.pricing?.baseFee || 150) + (selectedJobForBill.pricing?.distanceCharge || 30) + (parseFloat(materialsCost) || 0) + (parseFloat(extraLaborCharge) || 0) + Math.round(((selectedJobForBill.pricing?.baseFee || 150) + (selectedJobForBill.pricing?.distanceCharge || 30) + (parseFloat(materialsCost) || 0) + (parseFloat(extraLaborCharge) || 0)) * 0.05)) * 0.90
-                    ).toFixed(2))
-                  }
-                </span>
+                <span>(Includes 5% Material Handling & Tax: Rs. {Math.round((parseFloat(materialsCost) || 0) * 0.05)})</span>
               </div>
             </div>
 
@@ -742,7 +870,7 @@ export default function WorkerPortal({ t }) {
                 className="px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-black rounded-xl text-xs transition shadow-lg flex items-center gap-1.5"
               >
                 <Send className="w-4 h-4" />
-                Issue Digital Receipt to Customer
+                Send Material Payment Request to Customer
               </button>
             </div>
           </div>
@@ -892,15 +1020,7 @@ export default function WorkerPortal({ t }) {
               />
             </div>
 
-            <div className="flex justify-between items-center pt-2">
-              <button
-                onClick={() => triggerJobAlert({ isEmergency: selectedJobForNavigation.emergency })}
-                className="px-4 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition"
-              >
-                <Volume2 className="w-4 h-4 text-purple-600" />
-                Re-Play Sound
-              </button>
-
+            <div className="flex justify-end items-center pt-2">
               <button
                 onClick={() => setSelectedJobForNavigation(null)}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-md"

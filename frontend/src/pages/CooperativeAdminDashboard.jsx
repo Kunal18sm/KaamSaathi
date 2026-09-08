@@ -98,24 +98,24 @@ export default function CooperativeAdminDashboard({ t }) {
   const openComplaints = complaints.filter(c => c.status === 'OPEN');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7 max-w-7xl mx-auto py-3 sm:py-5">
       {/* Cooperative Banner */}
-      <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-900 text-white rounded-3xl p-5 sm:p-7 shadow-lg border border-emerald-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900">{currentCoop.name}</h1>
+            <h1 className="text-lg sm:text-2xl font-extrabold text-white">{currentCoop.name}</h1>
             <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
               {currentCoop.registrationNo}
             </span>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-emerald-100/80 mt-1">
             Registered District: <strong className="text-gray-700">{currentCoop.district}, {currentCoop.state}</strong> • Member of National Cooperative Federation
           </p>
         </div>
 
         {/* Dynamic Fairness Notice */}
-        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl max-w-md text-xs text-emerald-900 flex items-start gap-2 w-full md:w-auto">
-          <Sparkles className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+        <div className="bg-white/10 border border-white/15 p-3 rounded-xl max-w-md text-xs text-emerald-50 flex items-start gap-2 w-full md:w-auto">
+          <Sparkles className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold">Income Equalization Engine: </span>
             {(t && t.cooperative?.fairnessNotice) || 'Automated dispatch prioritizes low-earning certified technicians to guarantee equitable monthly wage distribution.'}
@@ -273,7 +273,7 @@ export default function CooperativeAdminDashboard({ t }) {
                             {isLowEarner ? 'HIGH (Income Boost)' : 'BALANCED'}
                           </span>
                         </td>
-                        <td className="p-3 font-bold text-amber-600">Rating {w.rating || 5.0}</td>
+                        <td className="p-3 font-bold text-amber-600">{Number(w.rating) > 0 ? `Rating ${w.rating}` : 'No ratings yet'}</td>
                         <td className="p-3 font-bold text-emerald-700">Rs. {w.welfare?.fundBalance || 0}</td>
                       </tr>
                     );
@@ -346,7 +346,7 @@ export default function CooperativeAdminDashboard({ t }) {
                             </span>
                           </div>
                           <p className="text-xs text-emerald-700 font-bold mt-0.5">
-                            {Array.isArray(w.skills) ? w.skills.join(', ') : w.skills} • {w.experienceYears || 2} Years Exp
+                            {Array.isArray(w.skills) ? w.skills.join(', ') : w.skills} • {Number.isFinite(Number(w.experienceYears)) ? w.experienceYears : 0} Years Exp
                           </p>
                           <p className="text-xs text-gray-500">Contact: <span className="font-semibold text-gray-700">{w.phone}</span></p>
                         </div>

@@ -15,6 +15,18 @@ function getHaversineDistance(lat1, lon1, lat2, lon2) {
 }
 
 /**
+ * Calculates distance-based Invite Fee:
+ * - <= 3 km: ₹40
+ * - 3 km to 5 km: ₹50
+ * - > 5 km: ₹50 + ₹10 per km for every extra km over 5 km
+ */
+function calculateInviteFee(distKm) {
+  if (distKm <= 3) return 40;
+  if (distKm <= 5) return 50;
+  return 50 + Math.ceil(distKm - 5) * 10;
+}
+
+/**
  * Finds eligible candidates and calculates the Fair Allocation Score.
  */
 function findBestWorkerMatch(serviceName, customerLat, customerLng, isEmergency = false) {
@@ -28,14 +40,18 @@ function findBestWorkerMatch(serviceName, customerLat, customerLng, isEmergency 
     return { error: 'No available verified workers found for this service near your location.' };
   }
 
+  const service = store.services.find(s => 
+    s.name.toLowerCase().includes(serviceName.toLowerCase()) || 
+    serviceName.toLowerCase().includes(s.name.toLowerCase())
+  ) || { basePrice: 450 };
+
   const scoredWorkers = eligibleWorkers.map(worker => {
     const distanceKm = getHaversineDistance(customerLat, customerLng, worker.location.lat, worker.location.lng);
     
-    // Distance-Based Pricing Calculation
-    const baseFee = 150; // Base inspection & setup fee
-    const perKmRate = 25; // ₹25 per kilometer distance fare
-    const distanceCharge = Math.max(30, Math.round(distanceKm * perKmRate));
-    const subtotal = baseFee + distanceCharge;
+    // Distance-Based Invite Fee & Fixed Labour Cost Calculation
+    const inviteFee = calculateInviteFee(distanceKm);
+    const labourCost = service.basePrice;
+    const subtotal = inviteFee + labourCost;
     const serviceTax = Math.round(subtotal * 0.05);
     const totalEstimate = subtotal + serviceTax;
 
@@ -82,7 +98,7 @@ function findBestWorkerMatch(serviceName, customerLat, customerLng, isEmergency 
 
     let rationaleParts = [];
     rationaleParts.push(`Qualified ${worker.experienceYears}y exp ${serviceName} expert`);
-    rationaleParts.push(`${distanceKm.toFixed(1)} km distance fare (Rs. ${distanceCharge})`);
+    rationaleParts.push(`${distanceKm.toFixed(1)} km (Invite Fee: Rs. ${inviteFee}, Labour: Rs. ${labourCost})`);
     rationaleParts.push(`${worker.rating} star rating (${worker.jobsCompleted} completed jobs)`);
     if (worker.weeklyEarnings < 3000) {
       rationaleParts.push(`Boosted by Cooperative Fairness Priority (earned ₹${worker.weeklyEarnings} this week)`);
@@ -94,9 +110,9 @@ function findBestWorkerMatch(serviceName, customerLat, customerLng, isEmergency 
       worker,
       distanceKm: parseFloat(distanceKm.toFixed(2)),
       pricing: {
-        baseFee,
-        perKmRate,
-        distanceCharge,
+        inviteFee,
+        labourCost,
+        distanceKm: parseFloat(distanceKm.toFixed(2)),
         subtotal,
         serviceTax,
         totalEstimate
@@ -122,5 +138,7 @@ function findBestWorkerMatch(serviceName, customerLat, customerLng, isEmergency 
 
 module.exports = {
   findBestWorkerMatch,
-  getHaversineDistance
+  getHaversineDistance,
+  calculateInviteFee
 };
+
