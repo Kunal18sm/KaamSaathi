@@ -449,10 +449,9 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
               </div>
               
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                {/* Emergency Priority Toggle placed directly inside booking selection area */}
                 <button
                   onClick={() => setIsEmergency(!isEmergency)}
-                  className={`px-2.5 py-2 rounded-xl text-[11px] font-bold transition flex items-center gap-1 shrink-0 ${
+                  className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition flex items-center gap-1 shrink-0 ${
                     isEmergency ? 'bg-red-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-red-50'
                   }`}
                 >
@@ -460,14 +459,11 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                   {isEmergency ? 'Emergency ON' : 'Emergency Priority'}
                 </button>
 
-                <button
-                  onClick={() => handleFairMatch(selectedService)}
-                  disabled={isMatching}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition flex-1 sm:flex-none"
-                >
-                  {isMatching ? 'Searching...' : 'Find Technicians'}
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                {isMatching && (
+                  <span className="text-xs text-emerald-700 font-bold flex items-center gap-1 animate-pulse">
+                    Searching...
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -573,7 +569,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                       b.workerRating ? (
                         <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-bold flex items-center gap-1">
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          {b.workerRating}Γÿà
+                          {b.workerRating}
                         </span>
                       ) : (
                         <button
@@ -639,7 +635,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                         <img 
                           src={w.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'} 
                           alt={w.name} 
-                          className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-500 shrink-0" 
+                          className="w-12 h-12 rounded-xl object-cover border-2 border-emerald-500 shrink-0" 
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
@@ -650,39 +646,26 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-emerald-700 font-bold mt-0.5">{w.coopName}</p>
-                          <div className="flex items-center gap-2 text-xs text-slate-600 mt-1 font-medium flex-wrap">
-                            <span className="font-bold text-amber-600">Rating {w.rating}Γÿà</span>
-                            <span>&bull; {candidate.distanceKm} km away</span>
-                            <span>&bull; {w.experienceYears}y Exp</span>
+                          <div className="flex items-center gap-2 text-xs text-slate-600 mt-1 font-semibold">
+                            <span className="flex items-center gap-1 text-amber-600 font-bold">
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                              {w.rating}
+                            </span>
+                            <span>&bull;</span>
+                            <span>{candidate.distanceKm} km away</span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Invite Fee + Fixed Labour Breakdown */}
-                      {candidate.pricing && (
-                        <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                          <span className="text-[11px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-lg font-bold border border-emerald-200">
-                            Invite Fee ({candidate.distanceKm} km): Rs. {candidate.pricing.inviteFee}
-                          </span>
-                          <span className="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-lg font-semibold border border-slate-200">
-                            Fixed Labour: Rs. {candidate.pricing.labourCost}
-                          </span>
-                          <span className="text-[11px] bg-blue-50 text-blue-800 px-2 py-0.5 rounded-lg font-bold border border-blue-200">
-                            +5% Tax: Rs. {candidate.pricing.serviceTax}
-                          </span>
-                        </div>
-                      )}
-
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-slate-100">
                         <div className="text-xs">
-                          <span className="text-slate-400">Total Booking Amount: </span>
+                          <span className="text-slate-400">Total Price: </span>
                           <span className="font-black text-slate-900 text-sm">Rs. {candidate.pricing?.totalEstimate || selectedService?.basePrice}</span>
                         </div>
 
                         <div className="flex gap-2">
-                          <button onClick={() => openWorkerProfile(w)} className="flex-1 sm:flex-none px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition">View profile</button>
-                          <button onClick={() => { handleInitiateBookingForWorker(w, candidate); setMatchingResult(null); }} className="flex-1 sm:flex-none px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs transition">Book Now & Pay</button>
+                          <button onClick={() => openWorkerProfile(w)} className="flex-1 sm:flex-none px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition">View Profile</button>
+                          <button onClick={() => { handleInitiateBookingForWorker(w, candidate); setMatchingResult(null); }} className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs transition">Book Now</button>
                         </div>
                       </div>
                     </div>
@@ -713,7 +696,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
               </div>
 
               {isLoadingReviews ? (
-                <p className="py-6 text-center text-xs text-slate-500 font-medium">Loading reviewsΓÇª</p>
+                <p className="py-6 text-center text-xs text-slate-500 font-medium">Loading reviews...</p>
               ) : workerReviews.length > 0 ? (
                 <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
                   {workerReviews.map((review, index) => (

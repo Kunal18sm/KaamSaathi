@@ -50,18 +50,9 @@ export default function ServicesDirectory({ onBack, onSelectService }) {
             className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs cursor-pointer hover:border-emerald-500 hover:shadow-md transition group"
           >
             <img src={SERVICE_IMAGES[service.id] || SERVICE_IMAGES['srv-1']} alt={service.name} className="h-28 w-full object-cover group-hover:scale-105 transition duration-300" />
-            <div className="space-y-2 p-3">
+            <div className="space-y-1 p-3">
               <h2 className="text-sm font-bold text-slate-900 group-hover:text-emerald-700">{service.name}</h2>
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-emerald-700">From Rs. {service.basePrice}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleChoose(service); }}
-                  className="rounded-lg bg-emerald-600 px-2.5 py-1 text-white text-[11px] font-bold flex items-center gap-1 hover:bg-emerald-700 transition shadow-xs"
-                >
-                  <span>Find Workers</span>
-                  <ArrowRight className="h-3 w-3" />
-                </button>
-              </div>
+              <p className="text-xs font-bold text-emerald-700">From Rs. {service.basePrice}</p>
             </div>
           </article>
         ))}
