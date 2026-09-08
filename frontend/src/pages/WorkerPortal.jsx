@@ -204,6 +204,13 @@ export default function WorkerPortal({ t, onOpenProfile }) {
   };
 
   const handleAcceptJob = async (jobId) => {
+    // Check if worker already has an ongoing active job
+    const ongoingJob = jobs.find(j => j.id !== jobId && ['ACCEPTED', 'ARRIVED', 'IN_PROGRESS', 'MATERIAL_REQUESTED'].includes(j.status));
+    if (ongoingJob) {
+      alert(`You already have an active job in progress (BK #${ongoingJob.id} - ${ongoingJob.serviceName}). Please complete your current job before accepting another dispatch.`);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/bookings/${jobId}/status`, {
         method: 'PATCH',
@@ -216,6 +223,8 @@ export default function WorkerPortal({ t, onOpenProfile }) {
         if (newJobNotification?.id === jobId) {
           setNewJobNotification(null);
         }
+      } else if (data.error) {
+        alert(data.error);
       }
     } catch (err) {
       console.error('Error accepting job:', err);

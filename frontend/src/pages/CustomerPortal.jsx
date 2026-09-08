@@ -25,7 +25,7 @@ const PAYMENT_METHODS = [
   { id: 'cash', label: 'Pay at Service (Cash)', icon: CreditCard },
 ];
 
-export default function CustomerPortal({ t, onOpenProfile, onBrowseServices }) {
+export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, initialSelectedService, onClearInitialSelectedService }) {
   const c = t?.customer || {};
   const { user } = useAuth();
   const [services, setServices] = useState([]);
@@ -91,13 +91,19 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices }) {
       const currentBookings = Array.isArray(data) ? data : [];
       setBookingsList(currentBookings);
 
-      // Check for newly completed bookings
+      // Check for newly completed or material requested bookings
       currentBookings.forEach(b => {
         if (b.status === 'COMPLETED' && !notifiedCompletedIdsRef.current.has(b.id)) {
           notifiedCompletedIdsRef.current.add(b.id);
           if (!isFirstFetchRef.current) {
             setCompletedJobNotification(b);
             triggerJobAlert({ isEmergency: false });
+          }
+        }
+        if (b.status === 'MATERIAL_REQUESTED' && b.finalReceipt && !notifiedCompletedIdsRef.current.has(b.id + '_mat')) {
+          notifiedCompletedIdsRef.current.add(b.id + '_mat');
+          if (!isFirstFetchRef.current) {
+            setPayBillBooking(b);
           }
         }
       });
@@ -113,7 +119,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices }) {
       .then(res => res.json())
       .then(data => {
         setServices(data);
-        if (data.length > 0) setSelectedService(data[0]);
+        if (data.length > 0 && !initialSelectedService) setSelectedService(data[0]);
       })
       .catch(err => console.error(err));
 
@@ -146,6 +152,15 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices }) {
       setIsMatching(false);
     }
   };
+
+  // Auto-match when redirected from Services Directory
+  useEffect(() => {
+    if (initialSelectedService) {
+      setSelectedService(initialSelectedService);
+      handleFairMatch(initialSelectedService);
+      if (onClearInitialSelectedService) onClearInitialSelectedService();
+    }
+  }, [initialSelectedService]);
 
   const handleInitiateBookingForWorker = (worker, candidate) => {
     const fullAddress = customHouseAddress.trim() 
@@ -558,7 +573,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices }) {
                       b.workerRating ? (
                         <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-bold flex items-center gap-1">
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          {b.workerRating}★
+                          {b.workerRating}Γÿà
                         </span>
                       ) : (
                         <button
@@ -637,7 +652,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices }) {
                           </div>
                           <p className="text-xs text-emerald-700 font-bold mt-0.5">{w.coopName}</p>
                           <div className="flex items-center gap-2 text-xs text-slate-600 mt-1 font-medium flex-wrap">
-                            <span className="font-bold text-amber-600">Rating {w.rating}★</span>
+                            <span className="font-bold text-amber-600">Rating {w.rating}Γÿà</span>
                             <span>&bull; {candidate.distanceKm} km away</span>
                             <span>&bull; {w.experienceYears}y Exp</span>
                           </div>
@@ -698,7 +713,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices }) {
               </div>
 
               {isLoadingReviews ? (
-                <p className="py-6 text-center text-xs text-slate-500 font-medium">Loading reviews…</p>
+                <p className="py-6 text-center text-xs text-slate-500 font-medium">Loading reviewsΓÇª</p>
               ) : workerReviews.length > 0 ? (
                 <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
                   {workerReviews.map((review, index) => (
@@ -755,7 +770,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices }) {
                   </div>
                   <h3 className="text-lg font-black text-slate-900">Secure Initial Booking Payment</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {pendingBookingData?.serviceName} — Invite Fee + Labour Rate
+                    {pendingBookingData?.serviceName} ΓÇö Invite Fee + Labour Rate
                   </p>
                 </div>
 

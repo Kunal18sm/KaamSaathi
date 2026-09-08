@@ -30,9 +30,17 @@ function calculateInviteFee(distKm) {
  * Finds eligible candidates and calculates the Fair Allocation Score.
  */
 function findBestWorkerMatch(serviceName, customerLat, customerLng, isEmergency = false) {
+  // Identify workers who currently have an active, uncompleted job
+  const activeWorkerIds = new Set(
+    store.bookings
+      .filter(b => ['ASSIGNED', 'ACCEPTED', 'ARRIVED', 'IN_PROGRESS', 'MATERIAL_REQUESTED'].includes(b.status))
+      .map(b => b.workerId)
+  );
+
   const eligibleWorkers = store.workers.filter(w => 
     w.availability === true &&
     w.verificationStatus === 'VERIFIED' &&
+    !activeWorkerIds.has(w.id) &&
     w.skills.some(skill => skill.toLowerCase().includes(serviceName.toLowerCase()) || serviceName.toLowerCase().includes(skill.toLowerCase()))
   );
 

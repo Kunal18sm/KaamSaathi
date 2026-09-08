@@ -447,6 +447,16 @@ app.post('/api/bookings/create', (req, res) => {
     return res.status(400).json({ error: 'Selected worker is unavailable' });
   }
 
+  // Prevent assigning a worker who already has an ongoing active job
+  const hasActiveJob = store.bookings.some(b => 
+    (b.workerId === worker.id || (b.workerName && b.workerName.toLowerCase() === worker.name.toLowerCase())) &&
+    ['ASSIGNED', 'ACCEPTED', 'ARRIVED', 'IN_PROGRESS', 'MATERIAL_REQUESTED'].includes(b.status)
+  );
+
+  if (hasActiveJob) {
+    return res.status(400).json({ error: `Technician ${worker.name} is currently busy with another active job. Please select another technician.` });
+  }
+
   const custLat = typeof latitude === 'number' ? latitude : 28.6139;
   const custLng = typeof longitude === 'number' ? longitude : 77.2090;
   const wrkLat = worker.location?.lat || 28.6139;
@@ -516,7 +526,14 @@ app.patch('/api/bookings/:id/status', (req, res) => {
     return res.status(404).json({ error: 'Booking not found' });
   }
 
-  booking.status = status;
+  // If worker tries to mark complete but material cost is still unpaid, retain MATERIAL_REQUESTED status
+  if (status === 'COMPLETED' && (booking.materialPaymentStatus === 'UNPAID' || (booking.finalReceipt && booking.finalReceipt.status === 'PENDING_MATERIAL_PAYMENT'))) {
+    booking.status = 'MATERIAL_REQUESTED';
+    booking.hasPendingMaterialCost = true;
+  } else {
+    booking.status = status;
+  }
+
   res.json({ success: true, booking });
 });
 
@@ -566,6 +583,8 @@ app.post('/api/bookings/:id/generate-bill', (req, res) => {
   };
 
   booking.finalReceipt = receipt;
+  booking.materialPaymentStatus = matCost > 0 ? 'UNPAID' : 'PAID';
+  booking.hasPendingMaterialCost = matCost > 0;
   booking.status = matCost > 0 ? 'MATERIAL_REQUESTED' : 'COMPLETED';
   booking.pricing = {
     ...booking.pricing,
@@ -592,7 +611,10 @@ app.post('/api/bookings/:id/pay-bill', (req, res) => {
 
   if (booking.finalReceipt) {
     booking.finalReceipt.status = 'PAID';
+    booking.finalReceipt.paidAt = new Date().toISOString();
   }
+  booking.materialPaymentStatus = 'PAID';
+  booking.hasPendingMaterialCost = false;
   booking.status = 'COMPLETED';
   booking.paymentStatus = 'PAID';
   booking.paymentMethod = paymentMethod || 'UPI / Online';

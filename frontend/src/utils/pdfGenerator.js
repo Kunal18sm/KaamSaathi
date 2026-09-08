@@ -3,6 +3,12 @@ import { jsPDF } from 'jspdf';
 export function generateInvoicePDF(booking) {
   const doc = new jsPDF();
 
+  const receipt = booking.finalReceipt || {};
+  const baseFee = receipt.serviceBaseFee || booking.pricing?.baseFee || 450;
+  const taxFee = receipt.tax || booking.pricing?.serviceTax || 25;
+  const matCost = receipt.materialsCost || booking.materialsCost || 0;
+  const grandTotal = receipt.grandTotal || booking.pricing?.totalAmount || (baseFee + taxFee + matCost);
+
   // Header Banner
   doc.setFillColor(22, 163, 74); // Emerald 600
   doc.rect(0, 0, 210, 30, 'F');
@@ -10,7 +16,7 @@ export function generateInvoicePDF(booking) {
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
-  doc.text('SAHKAAR / SEVASETU', 15, 18);
+  doc.text('KaamSathi', 15, 18);
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -57,11 +63,17 @@ export function generateInvoicePDF(booking) {
   y += 18;
   doc.setFont('helvetica', 'normal');
   doc.text(`Base Service Fee (${booking.serviceName})`, 20, y);
-  doc.text(`₹${booking.pricing?.baseFee || 450}`, 160, y);
+  doc.text(`₹${baseFee}`, 160, y);
 
   y += 10;
   doc.text('Service Taxes (GST 5%)', 20, y);
-  doc.text(`₹${booking.pricing?.serviceTax || 25}`, 160, y);
+  doc.text(`₹${taxFee}`, 160, y);
+
+  if (matCost > 0) {
+    y += 10;
+    doc.text(`Material & Hardware Cost (${receipt.materialDescription || 'Required Parts'})`, 20, y);
+    doc.text(`₹${matCost}`, 160, y);
+  }
 
   y += 10;
   doc.setDrawColor(203, 213, 225);
@@ -70,7 +82,7 @@ export function generateInvoicePDF(booking) {
   y += 10;
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL AMOUNT PAID', 20, y);
-  doc.text(`₹${booking.pricing?.totalAmount || 475}`, 160, y);
+  doc.text(`₹${grandTotal}`, 160, y);
 
   // Cooperative Welfare & Fair Distribution Transparency Note
   y += 20;
@@ -79,22 +91,26 @@ export function generateInvoicePDF(booking) {
   doc.setDrawColor(34, 197, 94);
   doc.rect(15, y, 180, 30, 'D');
 
+  const workerPayout = (baseFee * 0.90).toFixed(2);
+  const welfareContribution = (baseFee * 0.05).toFixed(2);
+  const coopPlatformFee = (baseFee * 0.05).toFixed(2);
+
   doc.setFontSize(9);
   doc.setTextColor(22, 101, 52);
   doc.setFont('helvetica', 'bold');
   doc.text('COOPERATIVE TRANSPARENCY & WORKER WELFARE BREAKDOWN', 20, y + 8);
   doc.setFont('helvetica', 'normal');
-  doc.text(`• Direct Worker Earning (90%): ₹${booking.pricing?.workerPayout || 427.50}`, 20, y + 15);
-  doc.text(`• Worker Welfare Fund Contribution (5%): ₹${booking.pricing?.welfareContribution || 23.75}`, 20, y + 21);
-  doc.text(`• Cooperative Platform Operations (5%): ₹${booking.pricing?.coopPlatformFee || 23.75}`, 20, y + 27);
+  doc.text(`• Direct Worker Earning (90% Base): ₹${workerPayout}`, 20, y + 15);
+  doc.text(`• Worker Welfare Fund Contribution (5% Base): ₹${welfareContribution}`, 20, y + 21);
+  doc.text(`• Cooperative Platform Operations (5% Base): ₹${coopPlatformFee}`, 20, y + 27);
 
   // Rationale
   y += 38;
   doc.setTextColor(100, 116, 139);
   doc.setFontSize(8);
-  doc.text(`Matching Reason: ${booking.matchRationale || 'Assigned via Sahkaar Income Equalization Engine.'}`, 15, y);
+  doc.text(`Matching Reason: ${booking.matchRationale || 'Assigned via KaamSathi Income Equalization Engine.'}`, 15, y);
   
-  doc.text('Thank you for supporting cooperative worker welfare! Powered by Sahkaar Platform.', 15, y + 8);
+  doc.text('Thank you for supporting cooperative worker welfare! Powered by KaamSathi Platform.', 15, y + 8);
 
-  doc.save(`SevaSetu_Invoice_${booking.id}.pdf`);
+  doc.save(`KaamSathi_Invoice_${booking.id}.pdf`);
 }

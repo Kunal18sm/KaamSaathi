@@ -18,6 +18,7 @@ function MainAppContent() {
   const [authMode, setAuthMode] = useState('login');
   const [authRole, setAuthRole] = useState('CUSTOMER');
   const [activeView, setActiveView] = useState('MAIN');
+  const [selectedServiceForMatch, setSelectedServiceForMatch] = useState(null);
 
   const t = translations[lang] || translations.en;
 
@@ -25,6 +26,11 @@ function MainAppContent() {
     setAuthMode(mode);
     setAuthRole(role);
     setIsAuthModalOpen(true);
+  };
+
+  const handleSelectServiceFromDirectory = (service) => {
+    setSelectedServiceForMatch(service);
+    setActiveView('MAIN');
   };
 
   return (
@@ -121,7 +127,7 @@ function MainAppContent() {
         {activeView === 'PROFILE' && user ? (
           <UserProfile onBack={() => setActiveView('MAIN')} t={t} />
         ) : activeView === 'SERVICES' && user?.role === 'CUSTOMER' ? (
-          <ServicesDirectory onBack={() => setActiveView('MAIN')} />
+          <ServicesDirectory onBack={() => setActiveView('MAIN')} onSelectService={handleSelectServiceFromDirectory} />
         ) : !user ? (
           <LandingPage onOpenAuth={handleOpenAuth} t={t} />
         ) : user.role === 'WORKER' ? (
@@ -131,7 +137,13 @@ function MainAppContent() {
         ) : user.role === 'FEDERATION' ? (
           <FederationMinistryDashboard t={t} />
         ) : (
-          <CustomerPortal t={t} onOpenProfile={() => setActiveView('PROFILE')} onBrowseServices={() => setActiveView('SERVICES')} />
+          <CustomerPortal
+            t={t}
+            onOpenProfile={() => setActiveView('PROFILE')}
+            onBrowseServices={() => setActiveView('SERVICES')}
+            initialSelectedService={selectedServiceForMatch}
+            onClearInitialSelectedService={() => setSelectedServiceForMatch(null)}
+          />
         )}
       </main>
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Search } from 'lucide-react';
 import { SERVICE_IMAGES } from '../utils/serviceImages';
 
-export default function ServicesDirectory({ onBack }) {
+export default function ServicesDirectory({ onBack, onSelectService }) {
   const [services, setServices] = useState([]);
   const [query, setQuery] = useState('');
 
@@ -16,6 +16,14 @@ export default function ServicesDirectory({ onBack }) {
   const filteredServices = services.filter(service =>
     service.name.toLowerCase().includes(query.trim().toLowerCase())
   );
+
+  const handleChoose = (service) => {
+    if (onSelectService) {
+      onSelectService(service);
+    } else {
+      onBack();
+    }
+  };
 
   return (
     <section className="mx-auto max-w-6xl space-y-5 py-3 sm:py-5">
@@ -36,14 +44,22 @@ export default function ServicesDirectory({ onBack }) {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {filteredServices.map(service => (
-          <article key={service.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
-            <img src={SERVICE_IMAGES[service.id] || SERVICE_IMAGES['srv-1']} alt={service.name} className="h-28 w-full object-cover" />
+          <article
+            key={service.id}
+            onClick={() => handleChoose(service)}
+            className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs cursor-pointer hover:border-emerald-500 hover:shadow-md transition group"
+          >
+            <img src={SERVICE_IMAGES[service.id] || SERVICE_IMAGES['srv-1']} alt={service.name} className="h-28 w-full object-cover group-hover:scale-105 transition duration-300" />
             <div className="space-y-2 p-3">
-              <h2 className="text-sm font-bold text-slate-900">{service.name}</h2>
+              <h2 className="text-sm font-bold text-slate-900 group-hover:text-emerald-700">{service.name}</h2>
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-emerald-700">From Rs. {service.basePrice}</span>
-                <button onClick={onBack} className="rounded-lg bg-emerald-600 p-1.5 text-white hover:bg-emerald-700" aria-label={`Select ${service.name}`}>
-                  <ArrowRight className="h-3.5 w-3.5" />
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleChoose(service); }}
+                  className="rounded-lg bg-emerald-600 px-2.5 py-1 text-white text-[11px] font-bold flex items-center gap-1 hover:bg-emerald-700 transition shadow-xs"
+                >
+                  <span>Find Workers</span>
+                  <ArrowRight className="h-3 w-3" />
                 </button>
               </div>
             </div>
