@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, User, HardHat, Shield, Building2, Phone, Lock, UploadCloud, CheckCircle, ChevronDown, KeyRound, AlertTriangle } from 'lucide-react';
+import { X, User, HardHat, Shield, Building2, Phone, Lock, UploadCloud, CheckCircle, ChevronDown, KeyRound, AlertTriangle, Eye, EyeOff, Briefcase, Award, FileText, Hash } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const INPUT_CLS =
@@ -33,6 +33,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
   const [photoPreview, setPhotoPreview] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [regCoords, setRegCoords] = useState([28.6139, 77.209]);
 
   useEffect(() => {
@@ -271,7 +272,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                         <input
                           type="text"
                           required
-                          placeholder="e.g. Ramesh Kumar"
+                          placeholder="Enter your full name"
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           className={INPUT_CLS}
@@ -282,7 +283,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                         <label className={LABEL_CLS}>Email Address <span className="font-normal text-gray-400">(Optional)</span></label>
                         <input
                           type="email"
-                          placeholder="e.g. ramesh@example.com"
+                          placeholder="e.g. yourname@example.com"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           className={INPUT_CLS}
@@ -294,47 +295,60 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                 </div>
 
                 {role === 'WORKER' && (
-                  <div className="bg-emerald-50/70 p-5 sm:p-6 rounded-3xl border border-emerald-300 shadow-2xs space-y-5">
+                  <div className="bg-emerald-50/70 p-5 sm:p-6 rounded-3xl border border-emerald-300 shadow-2xs space-y-6">
                     <p className={SECTION_HDR}>2. Technician & Trade Details *</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className={LABEL_CLS}>Cooperative Society *</label>
-                        <select
-                          value={coopId}
-                          onChange={(e) => setCoopId(e.target.value)}
-                          className={INPUT_CLS}
-                        >
-                          <option value="coop-1">Delhi Shramik Swavalamban Cooperative</option>
-                          <option value="coop-2">South Delhi Skill & Artisan Cooperative</option>
-                          <option value="coop-3">NCR Household Technicians Cooperative</option>
-                        </select>
+
+                    {/* ── Work Info ── */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Briefcase className="w-4 h-4 text-emerald-700" />
+                        <span className="text-xs font-black text-emerald-900 uppercase tracking-wider">Work Information</span>
                       </div>
-                      <div>
-                        <label className={LABEL_CLS}>Work Experience (Years) *</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="60"
-                          required
-                          placeholder="e.g. 4"
-                          value={experienceYears}
-                          onChange={(e) => setExperienceYears(e.target.value)}
-                          className={INPUT_CLS}
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-gray-700">Cooperative Society <span className="text-red-500">*</span></label>
+                          <select
+                            value={coopId}
+                            onChange={(e) => setCoopId(e.target.value)}
+                            className={INPUT_CLS}
+                          >
+                            <option value="coop-1">Delhi Shramik Swavalamban Cooperative</option>
+                            <option value="coop-2">South Delhi Skill & Artisan Cooperative</option>
+                            <option value="coop-3">NCR Household Technicians Cooperative</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-gray-700">Work Experience (Years) <span className="text-red-500">*</span></label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="60"
+                            required
+                            placeholder="e.g. 4"
+                            value={experienceYears}
+                            onChange={(e) => setExperienceYears(e.target.value)}
+                            className={INPUT_CLS}
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <label className={LABEL_CLS}>Skills & Services Offered *</label>
-                      <div className="flex flex-wrap gap-2 mt-1.5">
+
+                    {/* ── Skills ── */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Award className="w-4 h-4 text-emerald-700" />
+                        <span className="text-xs font-black text-emerald-900 uppercase tracking-wider">Skills & Services Offered <span className="text-red-500">*</span></span>
+                      </div>
+                      <div className="flex flex-wrap gap-2.5">
                         {skills.map((sk) => (
                           <button
                             key={sk}
                             type="button"
                             onClick={() => handleToggleSkill(sk)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border-2 transition ${
                               selectedSkills.includes(sk)
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                                : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-400'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                                : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-400 hover:bg-emerald-50'
                             }`}
                           >
                             {sk}
@@ -342,13 +356,17 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                         ))}
                       </div>
                     </div>
-                    <div className="border-t border-emerald-200 pt-4 space-y-3">
-                      <div className="text-xs font-black text-emerald-900">
-                        Trade License & Certificate Details *
+
+                    {/* ── Certificate / License Details ── */}
+                    <div className="space-y-4 border-t-2 border-emerald-200/80 pt-5">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-emerald-700" />
+                        <span className="text-xs font-black text-emerald-900 uppercase tracking-wider">Trade License & Certificate Details <span className="text-red-500">*</span></span>
                       </div>
-                      <div className="space-y-3 bg-white p-4 rounded-2xl border border-emerald-200">
-                        <div>
-                          <label className={LABEL_CLS}>Certificate / License Type *</label>
+
+                      <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-5">
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-gray-700">Certificate / License Type <span className="text-red-500">*</span></label>
                           <select
                             value={certificateType}
                             onChange={(e) => setCertificateType(e.target.value)}
@@ -361,9 +379,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                             <option value="Polytechnic Technical Certificate">Polytechnic Technical Certificate</option>
                           </select>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className={LABEL_CLS}>Certificate / License No. *</label>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                              <Hash className="w-3.5 h-3.5 text-gray-400" />
+                              Certificate / License No. <span className="text-red-500">*</span>
+                            </label>
                             <input
                               type="text"
                               required
@@ -373,8 +395,11 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                               className={INPUT_CLS}
                             />
                           </div>
-                          <div>
-                            <label className={LABEL_CLS}>Issuing Authority *</label>
+                          <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                              <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                              Issuing Authority <span className="text-red-500">*</span>
+                            </label>
                             <input
                               type="text"
                               required
@@ -385,25 +410,26 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                             />
                           </div>
                         </div>
-                        <div>
-                          <label className={LABEL_CLS}>Upload License Scan (PDF / Image)</label>
-                          <div className="flex items-center gap-3 mt-1.5">
+
+                        <div className="space-y-2 border-t border-gray-100 pt-4">
+                          <label className="block text-xs font-bold text-gray-700">Upload License Scan (PDF / Image)</label>
+                          <div className="flex items-center gap-3">
                             <button
                               type="button"
                               onClick={() => certFileInputRef.current?.click()}
-                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs"
+                              className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-sm"
                             >
                               <UploadCloud className="w-4 h-4" />
                               Attach File
                             </button>
                             <input ref={certFileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleCertDocChange} />
                             {certDocFileName ? (
-                              <span className="text-xs text-emerald-700 font-bold flex items-center gap-1 truncate max-w-[200px]">
+                              <span className="text-xs text-emerald-700 font-bold flex items-center gap-1.5 truncate max-w-[200px]">
                                 <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
                                 {certDocFileName}
                               </span>
                             ) : (
-                              <span className="text-xs text-gray-500">Document scan for verification committee</span>
+                              <span className="text-xs text-gray-400 italic">Document scan for verification committee</span>
                             )}
                           </div>
                         </div>
@@ -443,14 +469,22 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                 <div className="relative">
                   <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={INPUT_CLS + ' pl-10'}
+                    className={INPUT_CLS + ' pl-10 pr-11'}
                     autoComplete="new-password"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-0.5 rounded-md transition"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
             </div>
@@ -481,7 +515,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
           <p className="text-center text-xs text-gray-500 pt-2 border-t border-gray-100">
             {mode === 'login' ? (
               <>Don&apos;t have an account?{' '}
-                <button onClick={handleSwitchToRegister} className="font-bold text-emerald-600 hover:underline">Register</button>
+                <button onClick={() => { setMode('register'); setErrorMsg(null); }} className="font-bold text-emerald-600 hover:underline">Register</button>
               </>
             ) : (
               <>Already registered?{' '}

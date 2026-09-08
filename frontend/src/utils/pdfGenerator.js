@@ -63,16 +63,16 @@ export function generateInvoicePDF(booking) {
   y += 18;
   doc.setFont('helvetica', 'normal');
   doc.text(`Base Service Fee (${booking.serviceName})`, 20, y);
-  doc.text(`₹${baseFee}`, 160, y);
+  doc.text(`₹${Number(baseFee).toFixed(2)}`, 160, y);
 
   y += 10;
   doc.text('Service Taxes (GST 5%)', 20, y);
-  doc.text(`₹${taxFee}`, 160, y);
+  doc.text(`₹${Number(taxFee).toFixed(2)}`, 160, y);
 
   if (matCost > 0) {
     y += 10;
     doc.text(`Material & Hardware Cost (${receipt.materialDescription || 'Required Parts'})`, 20, y);
-    doc.text(`₹${matCost}`, 160, y);
+    doc.text(`₹${Number(matCost).toFixed(2)}`, 160, y);
   }
 
   y += 10;
@@ -82,7 +82,7 @@ export function generateInvoicePDF(booking) {
   y += 10;
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL AMOUNT PAID', 20, y);
-  doc.text(`₹${grandTotal}`, 160, y);
+  doc.text(`₹${Number(grandTotal).toFixed(2)}`, 160, y);
 
   // Cooperative Welfare & Fair Distribution Transparency Note
   y += 20;

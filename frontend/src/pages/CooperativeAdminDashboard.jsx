@@ -83,7 +83,11 @@ export default function CooperativeAdminDashboard({ t }) {
   const coopWorkers = user?.coopId ? workers.filter(w => w.coopId === user.coopId) : workers;
   
   // Pending workers across ALL registered workers so no worker is ever missed
-  const pendingWorkers = workers.filter(w => w.verificationStatus === 'PENDING_REVIEW');
+  // Registration creates workers with PENDING. Older records can still use
+  // PENDING_REVIEW, so both must remain visible in the approval queue.
+  const pendingWorkers = workers.filter(w =>
+    w.verificationStatus === 'PENDING' || w.verificationStatus === 'PENDING_REVIEW'
+  );
   const displayVerificationWorkers = verificationFilter === 'PENDING'
     ? (pendingWorkers.length > 0 ? pendingWorkers : workers)
     : workers;
@@ -150,8 +154,8 @@ export default function CooperativeAdminDashboard({ t }) {
             <DollarSign className="w-4 h-4 text-amber-600" />
             Worker Total Income
           </div>
-          <div className="text-2xl font-extrabold text-gray-900">Rs. {totalEarnings.toLocaleString('en-IN')}</div>
-          <div className="text-xs text-gray-500">Avg Rs. {avgIncome.toLocaleString('en-IN')}/worker</div>
+          <div className="text-2xl font-extrabold text-gray-900">Rs. {Number(totalEarnings).toFixed(2)}</div>
+          <div className="text-xs text-gray-500">Avg Rs. {Number(avgIncome).toFixed(2)}/worker</div>
         </div>
 
         <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm space-y-2">
@@ -159,7 +163,7 @@ export default function CooperativeAdminDashboard({ t }) {
             <ShieldCheck className="w-4 h-4 text-purple-600" />
             {(t && t.cooperative?.welfarePool) || 'Welfare Fund Pool'}
           </div>
-          <div className="text-2xl font-extrabold text-purple-900">Rs. {totalWelfare.toLocaleString('en-IN')}</div>
+          <div className="text-2xl font-extrabold text-purple-900">Rs. {Number(totalWelfare).toFixed(2)}</div>
           <div className="text-xs text-purple-700 font-semibold">{insurancePercent}% Insurance Coverage</div>
         </div>
       </div>
@@ -265,7 +269,7 @@ export default function CooperativeAdminDashboard({ t }) {
                             {w.verificationStatus}
                           </span>
                         </td>
-                        <td className="p-3 font-bold text-gray-900">Rs. {w.weeklyEarnings || 0}</td>
+                        <td className="p-3 font-bold text-gray-900">Rs. {Number(w.weeklyEarnings || 0).toFixed(2)}</td>
                         <td className="p-3">
                           <span className={`px-2.5 py-0.5 rounded-full font-extrabold text-[10px] ${
                             isLowEarner ? 'bg-purple-100 text-purple-900 border border-purple-200' : 'bg-gray-100 text-gray-600'
@@ -274,7 +278,7 @@ export default function CooperativeAdminDashboard({ t }) {
                           </span>
                         </td>
                         <td className="p-3 font-bold text-amber-600">{Number(w.rating) > 0 ? `Rating ${w.rating}` : 'No ratings yet'}</td>
-                        <td className="p-3 font-bold text-emerald-700">Rs. {w.welfare?.fundBalance || 0}</td>
+                        <td className="p-3 font-bold text-emerald-700">Rs. {Number(w.welfare?.fundBalance || 0).toFixed(2)}</td>
                       </tr>
                     );
                   })}
@@ -453,7 +457,7 @@ export default function CooperativeAdminDashboard({ t }) {
                         {w.name}
                       </td>
                       <td className="p-3 font-mono text-gray-700">{w.welfare?.accountNo || `WEL-${w.id.toUpperCase()}`}</td>
-                      <td className="p-3 font-bold text-purple-900">Rs. {w.welfare?.fundBalance || 500}</td>
+                      <td className="p-3 font-bold text-purple-900">Rs. {Number(w.welfare?.fundBalance || 500).toFixed(2)}</td>
                       <td className="p-3 font-mono text-gray-600">{w.welfare?.insurancePolicyNo || 'PMJJBY-PENDING'}</td>
                       <td className="p-3">
                         <span className="bg-emerald-100 text-emerald-800 font-bold text-[10px] px-2.5 py-0.5 rounded-full">

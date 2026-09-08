@@ -77,42 +77,31 @@ export default function PWAInstallBanner({ variant = 'banner' }) {
     );
   }
 
-  // Variant 2: Hero / Starting Section Prominent Banner
+  // Variant 2: Simple Clean Banner
   return (
     <>
-      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-emerald-500/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden my-4">
-        {/* Background glow */}
-        <div className="absolute -right-10 -top-10 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
-
-        <div className="flex items-center gap-4 z-10">
-          <div className="w-14 h-14 bg-emerald-600/30 border border-emerald-400/40 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
-            <Smartphone className="w-7 h-7 text-emerald-300 animate-bounce" />
+      <div className="bg-white border border-emerald-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-3 my-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 bg-emerald-100 border border-emerald-200 rounded-xl flex items-center justify-center shrink-0">
+            <Smartphone className="w-5 h-5 text-emerald-600" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                Full App Experience
-              </span>
-              <span className="text-xs text-emerald-300 font-bold">&bull; Offline Support & Instant Push Alerts</span>
-            </div>
-            <h3 className="text-lg sm:text-xl font-black text-white mt-1">
-              Install KaamSathi Mobile App
+            <h3 className="text-sm font-extrabold text-slate-900">
+              Install KaamSathi App
             </h3>
-            <p className="text-xs text-emerald-100/90 mt-0.5 max-w-xl">
-              Install KaamSathi directly to your phone home screen for 1-tap dispatches, real-time vibration alarms, and full native mobile app performance.
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+              Get instant alerts & offline access
             </p>
           </div>
         </div>
 
-        <div className="z-10 w-full md:w-auto flex items-center gap-3">
-          <button
-            onClick={handleInstallClick}
-            className="w-full md:w-auto px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black rounded-2xl text-xs sm:text-sm shadow-xl flex items-center justify-center gap-2 transition hover:scale-105"
-          >
-            <Download className="w-4 h-4 stroke-[3]" />
-            <span>Install App on Phone</span>
-          </button>
-        </div>
+        <button
+          onClick={handleInstallClick}
+          className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center justify-center gap-2 transition"
+        >
+          <Download className="w-4 h-4" />
+          <span>Install App</span>
+        </button>
       </div>
 
       {showIOSModal && (

@@ -19,7 +19,7 @@ export const translations = {
       roleCoopAdmin: "Coop Admin",
       roleMinistry: "Ministry",
       fullName: "Full Name",
-      namePlaceholder: "e.g. Ramesh Kumar",
+      namePlaceholder: "Enter your full name",
       selectCooperative: "Select Cooperative Society",
       skillsLabel: "Skills & Services",
       certificateLabel: "Trade License / ITI Certificate",
@@ -52,7 +52,7 @@ export const translations = {
       feature3Desc: "Algorithm prioritizes technicians with lower weekly earnings to ensure balanced livelihood across the community."
     },
     customer: {
-      greeting: "Hello, Aarav! What service do you need today?",
+      greeting: "Hello! What service do you need today?",
       emergencyTitle: "Emergency Service Request",
       emergencySubtitle: "Need urgent electrical, plumbing or appliance repair within 60 seconds?",
       emergencyBtn: "Dispatch Emergency Worker Now",
@@ -65,7 +65,7 @@ export const translations = {
       downloadInvoice: "Download Digital Invoice (PDF)"
     },
     worker: {
-      greeting: "Welcome, Ramesh Kumar",
+      greeting: "Welcome back",
       statusAvailable: "Available for Jobs",
       statusBusy: "Currently Busy",
       todayEarnings: "Today's Earnings",
@@ -119,7 +119,7 @@ export const translations = {
       roleCoopAdmin: "सहकारिता एडमिन",
       roleMinistry: "मंत्रालय",
       fullName: "पूरा नाम",
-      namePlaceholder: "जैसे रमेश कुमार",
+      namePlaceholder: "अपना पूरा नाम दर्ज करें",
       selectCooperative: "सहकारिता समिति चुनें",
       skillsLabel: "कौशल और सेवाएं",
       certificateLabel: "व्यापार लाइसेंस / आईटीआई प्रमाण पत्र",
@@ -152,7 +152,7 @@ export const translations = {
       feature3Desc: "अल्गोरिदम कम साप्ताहिक कमाई वाले तकनीशियनों को प्राथमिकता देता है ताकि सभी को समान अवसर मिले।"
     },
     customer: {
-      greeting: "नमस्ते, आरव! आज आपको किस सेवा की आवश्यकता है?",
+      greeting: "नमस्ते! आज आपको किस सेवा की आवश्यकता है?",
       emergencyTitle: "आपातकालीन सेवा अनुरोध",
       emergencySubtitle: "60 सेकंड के भीतर तुरंत प्लंबर या तकनीशियन की आवश्यकता है?",
       emergencyBtn: "आपातकालीन कार्यकर्ता अभी बुलाएं",
@@ -165,7 +165,7 @@ export const translations = {
       downloadInvoice: "डिजिटल रसीद डाउनलोड करें (PDF)"
     },
     worker: {
-      greeting: "नमस्ते, रमेश कुमार",
+      greeting: "वापसी पर स्वागत है",
       statusAvailable: "काम के लिए उपलब्ध",
       statusBusy: "व्यस्त हैं",
       todayEarnings: "आज की कमाई",
@@ -219,7 +219,7 @@ export const translations = {
       roleCoopAdmin: "সমবায় অ্যাডমিন",
       roleMinistry: "মন্ত্রণালয়",
       fullName: "পুরো নাম",
-      namePlaceholder: "যেমন রমেশ কুমার",
+      namePlaceholder: "আপনার পুরো নাম লিখুন",
       selectCooperative: "সমবায় সমিতি নির্বাচন করুন",
       skillsLabel: "দক্ষতা ও পরিষেবা",
       certificateLabel: "ট্রেড লাইসেন্স / আইটিআই সার্টিফিকেট",
@@ -252,20 +252,20 @@ export const translations = {
       feature3Desc: "অ্যালগরিদম কম সাপ্তাহিক আয়ের প্রযুক্তিবিদদের অগ্রাধিকার দেয় যাতে সবার সমান সুযোগ থাকে।"
     },
     customer: {
-      greeting: "নমস্কার, আরভ! আজ আপনার কী পরিষেবা প্রয়োজন?",
+      greeting: "নমস্কার! আজ আপনার কী পরিষেবা প্রয়োজন?",
       emergencyTitle: "জরুরি পরিষেবা অনুরোধ",
       emergencySubtitle: "৬০ সেকেন্ডের মধ্যে জরুরি ইলেকট্রিশিয়ান বা প্লাম্বার প্রয়োজন?",
       emergencyBtn: "জরুরি কর্মী বুক করুন",
       searchPlaceholder: "পরিষেবা খুঁজুন...",
       popularServices: "জনপ্রিয় পরিষেবা",
-      whyThisWorkerTitle: "কেন রমেশকে নির্বাচন করা হলো?",
+      whyThisWorkerTitle: "কেন এই প্রযুক্তিবিদকে নির্বাচন করা হলো?",
       transparencyTag: "স্বচ্ছ বরাদ্দ অ্যালগরিদম",
       fairnessBadge: "সমবায় ন্যায্য বরাদ্দ",
       bookNow: "এখনই বুক করুন",
       downloadInvoice: "ডিজিটাল চালান ডাউনলোড করুন (PDF)"
     },
     worker: {
-      greeting: "নমস্কার, রমেশ কুমার",
+      greeting: "আবার স্বাগতম",
       statusAvailable: "কাজের জন্য উপলব্ধ",
       statusBusy: "ব্যস্ত আছেন",
       todayEarnings: "আজকের আয়",

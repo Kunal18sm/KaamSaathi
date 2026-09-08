@@ -39,25 +39,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const demoLogin = async (demoRole) => {
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ demoRole })
-      });
-      const data = await res.json();
-      if (data.token) {
-        setToken(data.token);
-        setUser(data.user);
-        localStorage.setItem('sevasetu_token', data.token);
-      }
-      return data;
-    } catch (err) {
-      return { error: 'Network error' };
-    }
-  };
-
   const register = async (formData) => {
     try {
       const res = await fetch('/api/auth/register', {
@@ -107,16 +88,15 @@ export function AuthProvider({ children }) {
         }
         return { success: true, user: data.user };
       }
+      return { error: data.error || 'Profile could not be saved.' };
     } catch (err) {
       console.error('Update profile API error:', err);
+      return { error: 'Network error while saving profile.' };
     }
-    // Fallback to local state if backend API fails
-    setUser(prev => prev ? { ...prev, ...updatedFields } : prev);
-    return { success: true };
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, demoLogin, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

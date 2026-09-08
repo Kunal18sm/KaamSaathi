@@ -100,7 +100,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
             triggerJobAlert({ isEmergency: false });
           }
         }
-        if (b.status === 'MATERIAL_REQUESTED' && b.finalReceipt && !notifiedCompletedIdsRef.current.has(b.id + '_mat')) {
+        if (b.status === 'MATERIAL_REQUESTED' && b.finalReceipt && b.materialPaymentStatus !== 'PAID' && !notifiedCompletedIdsRef.current.has(b.id + '_mat')) {
           notifiedCompletedIdsRef.current.add(b.id + '_mat');
           if (!isFirstFetchRef.current) {
             setPayBillBooking(b);
@@ -253,18 +253,17 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentMethod: billPaymentMethod })
       });
-      const data = await res.json();
-      if (data.success) {
-        setBillPayStatus('success');
-        setBookingsList(bookingsList.map(b => b.id === payBillBooking.id ? data.booking : b));
-        setTimeout(() => {
-          setPayBillBooking(null);
-          setBillPayStatus(null);
-        }, 2000);
-      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || 'Material payment could not be recorded.');
+      setBillPayStatus('success');
+      setBookingsList(bookingsList.map(b => b.id === payBillBooking.id ? data.booking : b));
+      setTimeout(() => {
+        setPayBillBooking(null);
+        setBillPayStatus(null);
+      }, 2000);
     } catch (err) {
       console.error('Bill payment error:', err);
-      setBillPayStatus('success');
+      setBillPayStatus('error');
     }
   };
 
@@ -345,7 +344,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
       <div className="rounded-3xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white px-5 py-5 sm:px-7 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            {c.greeting ? c.greeting.replace('Aarav', user?.name || 'Customer') : `Home services at your doorstep`}
+            {c.greeting ? (user?.name ? `Hello, ${user.name}! What service do you need today?` : c.greeting) : `Home services at your doorstep`}
           </h1>
           <div className="flex items-center gap-2 mt-1.5 text-xs font-semibold text-slate-600">
             <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -513,12 +512,13 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-sm text-slate-900">{b.serviceName}</span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                        b.status === 'MATERIAL_REQUESTED' && b.materialPaymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-800' :
                         b.status === 'MATERIAL_REQUESTED' ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-400 animate-pulse' :
                         b.status === 'BILL_GENERATED' ? 'bg-purple-100 text-purple-800' :
                         b.status === 'COMPLETED' ? 'bg-slate-200 text-slate-700' :
                         'bg-emerald-100 text-emerald-800'
                       }`}>
-                        {b.status === 'MATERIAL_REQUESTED' ? 'MATERIAL PAYMENT REQUESTED' : b.status === 'BILL_GENERATED' ? 'BILL RECEIVED' : b.status}
+                        {b.status === 'MATERIAL_REQUESTED' && b.materialPaymentStatus === 'PAID' ? 'MATERIAL PAID - AWAITING COMPLETION' : b.status === 'MATERIAL_REQUESTED' ? 'MATERIAL PAYMENT REQUESTED' : b.status === 'BILL_GENERATED' ? 'BILL RECEIVED' : b.status}
                       </span>
                       {b.emergency && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-800">Emergency</span>
@@ -554,7 +554,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    {(b.status === 'BILL_GENERATED' || b.status === 'MATERIAL_REQUESTED') && b.finalReceipt && (
+                    {(b.status === 'BILL_GENERATED' || b.status === 'MATERIAL_REQUESTED') && b.finalReceipt && b.materialPaymentStatus !== 'PAID' && (
                       <button
                         onClick={() => setPayBillBooking(b)}
                         className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black flex items-center gap-1 shadow-xs transition animate-bounce"
@@ -562,6 +562,13 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                         <CreditCard className="w-3.5 h-3.5" />
                         Pay Material Cost (Rs. {Number(b.finalReceipt.amountDueNow || b.finalReceipt.materialsCost).toFixed(2)})
                       </button>
+                    )}
+
+                    {(b.status === 'MATERIAL_REQUESTED') && b.finalReceipt && b.materialPaymentStatus === 'PAID' && (
+                      <span className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-black flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                        Material Cost Paid
+                      </span>
                     )}
 
                     <button
@@ -967,7 +974,23 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                   <CheckCircle className="w-6 h-6" />
                 </div>
                 <div className="font-bold text-slate-900 text-base">Material Payment Successful!</div>
-                <p className="text-xs text-slate-500">Job marked completed. Technician payout released.</p>
+                <p className="text-xs text-slate-500">The technician will confirm work completion. You will be notified once the job is marked complete.</p>
+              </div>
+            )}
+
+            {billPayStatus === 'error' && (
+              <div className="text-center py-5 space-y-3">
+                <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div className="font-bold text-slate-900 text-base">Payment could not be recorded</div>
+                <p className="text-xs text-slate-500">No payment status was changed. Please try again.</p>
+                <button
+                  onClick={() => setBillPayStatus(null)}
+                  className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-extrabold text-xs shadow-md transition"
+                >
+                  Try Again
+                </button>
               </div>
             )}
           </div>

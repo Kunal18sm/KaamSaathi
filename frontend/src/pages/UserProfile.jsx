@@ -4,6 +4,7 @@ import {
   UserCheck, Settings, LogOut, ArrowLeft, Building2, Edit3, Save, X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import PWAInstallBanner from '../components/PWAInstallBanner';
 
 export default function UserProfile({ onBack, t }) {
   const { user, logout, updateUser } = useAuth();
@@ -20,6 +21,7 @@ export default function UserProfile({ onBack, t }) {
       : user?.location?.address || 'Connaught Place, New Delhi'
   );
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   if (!user) return null;
 
@@ -35,7 +37,8 @@ export default function UserProfile({ onBack, t }) {
     : (user.skills || 'Household Technical Services');
 
   const handleSaveProfile = async () => {
-    await updateUser({
+    setSaveError('');
+    const result = await updateUser({
       name: editName.trim() || user.name,
       phone: editPhone.trim() || user.phone,
       email: editEmail.trim() || user.email,
@@ -43,6 +46,10 @@ export default function UserProfile({ onBack, t }) {
         ? { ...user.location, address: editAddress.trim() || userAddress }
         : editAddress.trim() || userAddress
     });
+    if (!result?.success) {
+      setSaveError(result?.error || 'Profile could not be saved. Please try again.');
+      return;
+    }
     setIsEditing(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
@@ -69,6 +76,12 @@ export default function UserProfile({ onBack, t }) {
         <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs">
           <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
           Profile details updated successfully!
+        </div>
+      )}
+      {saveError && (
+        <div className="p-3 bg-red-50 text-red-800 border border-red-200 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs">
+          <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+          {saveError}
         </div>
       )}
 

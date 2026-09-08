@@ -15,7 +15,12 @@ const connectDB = require('./db/connect');
 const store = require('./db/store');
 const { findBestWorkerMatch, getHaversineDistance, calculateInviteFee } = require('./services/matchingEngine');
 const { uploadImage } = require('./utils/cloudinary');
-const { User: PersistentUser } = require('./models/schemas');
+const {
+  User: PersistentUser,
+  Booking: PersistentBooking,
+  WelfareTransaction: PersistentWelfareTransaction,
+  Complaint: PersistentComplaint
+} = require('./models/schemas');
 const mongoose = require('mongoose');
 
 const app = express();
@@ -26,36 +31,68 @@ app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Keep the verified technicians bundled with the demo data available for matching.
-// Registered accounts from MongoDB are added below, so a fresh installation can
-// complete the customer booking flow without waiting for a separate onboarding.
+// Workers and customers are loaded exclusively from MongoDB.
+// No fake/demo worker data is bundled in the in-memory store.
 store.customers = [];
-const bundledWorkerIds = new Set(store.workers.map(worker => worker.id));
 
-// Load registered accounts from MongoDB when it is configured, so accounts survive a server restart.
-(async () => {
+const isDatabaseConnected = () => mongoose.connection.readyState === 1;
+const requireDatabase = () => {
+  if (isDatabaseConnected()) return;
+  const error = new Error('Database is unavailable. Check MONGODB_URI and MongoDB connectivity.');
+  error.code = 'DATABASE_UNAVAILABLE';
+  throw error;
+};
+
+// Persist the same objects the portals use. Keeping these helpers in one place
+// prevents a route from updating only the temporary in-memory store.
+const saveUser = async (user) => {
+  requireDatabase();
+  if (!user?.id) return;
+  const { id, _id, ...fields } = user;
+  await PersistentUser.updateOne({ userId: id }, { $set: { ...fields, userId: id } }, { upsert: true });
+};
+const saveBooking = async (booking) => {
+  requireDatabase();
+  if (!booking?.id) return;
+  const { id, _id, ...fields } = booking;
+  await PersistentBooking.updateOne({ bookingId: id }, { $set: { ...fields, bookingId: id } }, { upsert: true });
+};
+const saveWelfareTransaction = async (transaction) => {
+  requireDatabase();
+  if (!transaction?.id) return;
+  const { id, _id, ...fields } = transaction;
+  await PersistentWelfareTransaction.updateOne({ txId: id }, { $set: { ...fields, txId: id } }, { upsert: true });
+};
+const saveComplaint = async (complaint) => {
+  requireDatabase();
+  if (!complaint?.id) return;
+  const { id, _id, ...fields } = complaint;
+  await PersistentComplaint.updateOne({ complaintId: id }, { $set: { ...fields, complaintId: id } }, { upsert: true });
+};
+
+// Load all persisted portal data before accepting requests, so a booking cannot
+// be matched against a partially loaded worker list after a server restart.
+const loadPersistentData = (async () => {
   const connected = await connectDB();
   if (!connected) return;
   try {
-    const users = await PersistentUser.find({ userId: { $regex: /^(usr-|wrk-)/ } }).lean();
-    const registeredWorkers = users.filter(doc => doc.role === 'WORKER');
-
-    // This installation uses instant technician activation so a newly registered
-    // worker can receive a test booking immediately. Once real workers exist,
-    // do not route their work to the bundled demo technician accounts.
-    if (registeredWorkers.length > 0) {
-      store.workers = store.workers.filter(worker => !bundledWorkerIds.has(worker.id));
-    }
-
+    const [users, bookings, welfareTransactions, complaints] = await Promise.all([
+      PersistentUser.find().lean(),
+      PersistentBooking.find().lean(),
+      PersistentWelfareTransaction.find().lean(),
+      PersistentComplaint.find().lean()
+    ]);
     users.forEach(doc => {
       const user = { ...doc, id: doc.userId, _id: undefined };
-      if (user.role === 'WORKER') user.verificationStatus = 'VERIFIED';
-      if (user.role === 'WORKER' && !store.workers.some(worker => worker.id === user.id)) store.workers.push(user);
+      if (user.role === 'WORKER') store.workers.push(user);
       if (user.role === 'CUSTOMER') store.customers.push(user);
     });
-    console.log(`Loaded ${store.workers.length} workers and ${store.customers.length} customers from MongoDB.`);
+    store.bookings = bookings.map(({ _id, bookingId, ...booking }) => ({ ...booking, id: bookingId }));
+    store.welfareTransactions = welfareTransactions.map(({ _id, txId, ...transaction }) => ({ ...transaction, id: txId }));
+    store.complaints = complaints.map(({ _id, complaintId, ...complaint }) => ({ ...complaint, id: complaintId }));
+    console.log(`Loaded ${store.workers.length} workers, ${store.customers.length} customers and ${store.bookings.length} bookings from MongoDB.`);
   } catch (err) {
-    console.warn('Could not load registered accounts from MongoDB:', err.message);
+    console.error('Could not load registered accounts from MongoDB:', err.message);
   }
 })();
 
@@ -153,7 +190,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
   }
 
-  const userId = `usr-${Math.floor(1000 + Math.random() * 9000)}`;
+  const userId = `usr-${uuidv4()}`;
   let registeredUser = null;
 
   const userLat = typeof latitude === 'number' ? latitude : 28.6139;
@@ -174,7 +211,7 @@ app.post('/api/auth/register', async (req, res) => {
     };
 
     const newWorker = {
-      id: `wrk-${Math.floor(100 + Math.random() * 900)}`,
+      id: `wrk-${uuidv4()}`,
       name: normalizedName,
       phone: `+91 ${indianMobile}`,
       photo: photoUrl,
@@ -225,7 +262,7 @@ app.post('/api/auth/register', async (req, res) => {
   } else {
     // CUSTOMER
     const newCust = {
-      id: `cust-${Math.floor(100 + Math.random() * 900)}`,
+      id: `cust-${uuidv4()}`,
       name,
       phone,
       photo: photoUrl,
@@ -236,14 +273,15 @@ app.post('/api/auth/register', async (req, res) => {
     registeredUser = { ...newCust, role: 'CUSTOMER' };
   }
 
-  // Persist newly registered customer/worker accounts when MongoDB is connected.
-  if (mongoose.connection.readyState === 1 && (registeredUser.role === 'WORKER' || registeredUser.role === 'CUSTOMER')) {
+  // Do not report a successful registration until the durable record exists.
+  if (registeredUser.role === 'WORKER' || registeredUser.role === 'CUSTOMER') {
     try {
-      const { id, ...persistentFields } = registeredUser;
-      await PersistentUser.create({ ...persistentFields, userId: id });
+      await saveUser(registeredUser);
     } catch (err) {
+      store.workers = store.workers.filter(w => w.id !== registeredUser.id);
+      store.customers = store.customers.filter(c => c.id !== registeredUser.id);
       console.error('MongoDB account save failed:', err.message);
-      return res.status(500).json({ error: 'Account could not be saved to the database. Please try again.' });
+      return res.status(503).json({ error: 'Account could not be saved to the database. Please try again.' });
     }
   }
 
@@ -295,16 +333,11 @@ app.patch('/api/users/profile', async (req, res) => {
     targetUser = { id: id || 'usr-1', name: name || 'User', phone: phone || '+91 98765 43210', email, location, role: role || 'CUSTOMER' };
   }
 
-  // Update MongoDB if connected
-  if (mongoose.connection.readyState === 1) {
-    try {
-      await PersistentUser.updateOne(
-        { $or: [{ userId: id }, { phone }] },
-        { $set: { name, phone, email, location } }
-      );
-    } catch (err) {
-      console.error('MongoDB profile update warning:', err.message);
-    }
+  try {
+    await saveUser(targetUser);
+  } catch (err) {
+    console.error('MongoDB profile update failed:', err.message);
+    return res.status(500).json({ error: 'Profile could not be saved to the database.' });
   }
 
   const token = jwt.sign(targetUser, JWT_SECRET, { expiresIn: '7d' });
@@ -313,76 +346,35 @@ app.patch('/api/users/profile', async (req, res) => {
 
 // 2. User Login
 app.post('/api/auth/login', (req, res) => {
-  const { phone, role, demoRole } = req.body;
+  const { phone, role } = req.body;
+
+  if (!phone || !phone.trim()) {
+    return res.status(400).json({ error: 'Mobile number is required for login.' });
+  }
 
   let loggedInUser = null;
+  const inputClean = cleanPhone(phone);
 
-  if (demoRole) {
-    if (demoRole === 'CUSTOMER') {
-      const cust = store.customers[0];
-      if (!cust) return res.status(404).json({ error: 'No customer account registered yet. Please register first.' });
+  if (role === 'WORKER') {
+    const worker = store.workers.find(w => cleanPhone(w.phone) === inputClean || w.phone === phone.trim());
+    if (worker) {
+      loggedInUser = { ...worker, role: 'WORKER' };
+    } else {
+      return res.status(404).json({ error: 'No technician account found registered with this mobile number. Please click Register first.' });
+    }
+  } else if (role === 'CUSTOMER') {
+    const cust = store.customers.find(c => cleanPhone(c.phone) === inputClean || c.phone === phone.trim());
+    if (cust) {
       loggedInUser = { ...cust, role: 'CUSTOMER' };
-    } else if (demoRole === 'WORKER') {
-      const wrk = store.workers[0];
-      if (!wrk) return res.status(404).json({ error: 'No technician account registered yet. Please register first.' });
-      loggedInUser = { ...wrk, role: 'WORKER' };
-    } else if (demoRole === 'COOPERATIVE') {
-      loggedInUser = {
-        id: 'coop-admin-1',
-        name: 'Suresh Chandra Sharma',
-        phone: '+91 98765 43210',
-        role: 'COOPERATIVE',
-        coopId: 'coop-1',
-        coopName: 'Delhi Shramik Swavalamban Cooperative Society'
-      };
-    } else if (demoRole === 'FEDERATION') {
-      loggedInUser = {
-        id: 'fed-admin-1',
-        name: 'Ministry Official',
-        phone: '+91 11 2338 1234',
-        role: 'FEDERATION',
-        ministryName: 'Ministry of Cooperation'
-      };
+    } else {
+      return res.status(404).json({ error: 'No customer account found registered with this mobile number. Please click Register first.' });
     }
+  } else if (role === 'COOPERATIVE') {
+    return res.status(403).json({ error: 'Cooperative Admin accounts are pre-provisioned by the Federation Authority. Please use your issued credentials.' });
+  } else if (role === 'FEDERATION') {
+    return res.status(403).json({ error: 'Ministry accounts are pre-provisioned by the Federation Authority. Please use your issued credentials.' });
   } else {
-    if (!phone || !phone.trim()) {
-      return res.status(400).json({ error: 'Mobile number is required for login.' });
-    }
-
-    const inputClean = cleanPhone(phone);
-
-    if (role === 'WORKER') {
-      const worker = store.workers.find(w => cleanPhone(w.phone) === inputClean || w.phone === phone.trim());
-      if (worker) {
-        loggedInUser = { ...worker, role: 'WORKER' };
-      } else {
-        return res.status(404).json({ error: 'No technician account found registered with this mobile number. Please click Register first.' });
-      }
-    } else if (role === 'CUSTOMER') {
-      const cust = store.customers.find(c => cleanPhone(c.phone) === inputClean || c.phone === phone.trim());
-      if (cust) {
-        loggedInUser = { ...cust, role: 'CUSTOMER' };
-      } else {
-        return res.status(404).json({ error: 'No customer account found registered with this mobile number. Please click Register first.' });
-      }
-    } else if (role === 'COOPERATIVE') {
-      loggedInUser = {
-        id: 'coop-admin-1',
-        name: 'Suresh Chandra Sharma',
-        phone: phone.trim(),
-        role: 'COOPERATIVE',
-        coopId: 'coop-1',
-        coopName: 'Delhi Shramik Swavalamban Cooperative Society'
-      };
-    } else if (role === 'FEDERATION') {
-      loggedInUser = {
-        id: 'fed-admin-1',
-        name: 'Ministry Official',
-        phone: phone.trim(),
-        role: 'FEDERATION',
-        ministryName: 'Ministry of Cooperation'
-      };
-    }
+    return res.status(400).json({ error: 'Invalid account role specified.' });
   }
 
   if (!loggedInUser) {
@@ -451,22 +443,25 @@ app.get('/api/workers', (req, res) => {
 });
 
 // 7. Onboard / Verify Worker
-app.post('/api/workers/verify', (req, res) => {
-  const { workerId, action } = req.body;
+app.post('/api/workers/verify', async (req, res) => {
+  const { workerId, action, status, notes } = req.body;
   const worker = store.workers.find(w => w.id === workerId);
   if (!worker) {
     return res.status(404).json({ error: 'Worker not found' });
   }
-  worker.verificationStatus = action === 'VERIFY' ? 'VERIFIED' : 'REJECTED';
+  worker.verificationStatus = status || (action === 'VERIFY' ? 'VERIFIED' : 'REJECTED');
+  if (notes) worker.verificationNotes = notes;
+  try { await saveUser({ ...worker, role: 'WORKER' }); } catch (err) { return res.status(500).json({ error: 'Worker verification could not be saved.' }); }
   res.json({ success: true, worker });
 });
 
 // Keep the technician's availability in sync with matching and the worker portal.
-app.patch('/api/workers/:id/availability', (req, res) => {
+app.patch('/api/workers/:id/availability', async (req, res) => {
   const worker = store.workers.find(w => String(w.id) === String(req.params.id));
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
   worker.availability = Boolean(req.body.availability);
+  try { await saveUser({ ...worker, role: 'WORKER' }); } catch (err) { return res.status(500).json({ error: 'Availability could not be saved.' }); }
   res.json({ success: true, worker });
 });
 
@@ -485,7 +480,7 @@ app.post('/api/bookings/match', (req, res) => {
 });
 
 // 9. Create Booking (With Haversine distance-based dynamic pricing)
-app.post('/api/bookings/create', (req, res) => {
+app.post('/api/bookings/create', async (req, res) => {
   const {
     customerId, customerName, customerPhone, customerPhoto, serviceId, serviceName, workerId,
     address, latitude, longitude, scheduledTime, emergency,
@@ -529,7 +524,7 @@ app.post('/api/bookings/create', (req, res) => {
   const workerPayout = parseFloat((initialEstimate - coopPlatformFee - welfareContribution).toFixed(2));
 
   const newBooking = {
-    id: `BK-${Math.floor(1000 + Math.random() * 9000)}`,
+    id: `BK-${uuidv4()}`,
     customerId: customerId || 'cust-1',
     customerName: customerName || 'Customer',
     customerPhone: customerPhone || '+91 98990 12345',
@@ -568,11 +563,19 @@ app.post('/api/bookings/create', (req, res) => {
 
   store.bookings.unshift(newBooking);
 
+  try {
+    await saveBooking(newBooking);
+  } catch (err) {
+    store.bookings = store.bookings.filter(b => b.id !== newBooking.id);
+    console.error('MongoDB booking save failed:', err.message);
+    return res.status(500).json({ error: 'Booking could not be saved to the database. Please try again.' });
+  }
+
   res.status(201).json({ success: true, booking: newBooking });
 });
 
 // 10. Update Booking Status
-app.patch('/api/bookings/:id/status', (req, res) => {
+app.patch('/api/bookings/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
@@ -589,11 +592,49 @@ app.patch('/api/bookings/:id/status', (req, res) => {
     booking.status = status;
   }
 
+  // When the worker manually confirms completion, credit earnings & welfare contribution
+  if (status === 'COMPLETED' && booking.materialPaymentStatus !== 'UNPAID' && !booking.completionRecordedAt) {
+    const worker = store.workers.find(w => w.id === booking.workerId);
+    const workerPayout = booking.finalReceipt?.workerPayout || booking.pricing?.workerPayout || 427.50;
+    const welfareContribution = booking.finalReceipt?.welfareContribution || booking.pricing?.welfareContribution || 23.75;
+
+    if (worker) {
+      worker.jobsCompleted += 1;
+      worker.totalEarnings += workerPayout;
+      worker.weeklyEarnings += workerPayout;
+      if (worker.welfare) {
+        worker.welfare.fundBalance += welfareContribution;
+      }
+    }
+
+    const welfareTx = {
+      id: `WT-${uuidv4()}`,
+      workerId: booking.workerId,
+      workerName: booking.workerName,
+      type: 'CONTRIBUTION',
+      amount: welfareContribution,
+      description: `5% Welfare Fund contribution from Booking #${booking.id} (Receipt ${booking.finalReceipt?.receiptNo || 'RCT'})`,
+      date: new Date().toISOString()
+    };
+    store.welfareTransactions.unshift(welfareTx);
+    booking.completionRecordedAt = new Date().toISOString();
+    try {
+      await Promise.all([
+        saveUser({ ...worker, role: 'WORKER' }),
+        saveWelfareTransaction(welfareTx)
+      ]);
+    } catch (err) {
+      return res.status(500).json({ error: 'Completion accounting could not be saved to the database.' });
+    }
+  }
+
+  try { await saveBooking(booking); } catch (err) { return res.status(500).json({ error: 'Booking status could not be saved to the database.' }); }
+
   res.json({ success: true, booking });
 });
 
 // 10B. Technician Requests Material Cost / Finalizes Work Receipt
-app.post('/api/bookings/:id/generate-bill', (req, res) => {
+app.post('/api/bookings/:id/generate-bill', async (req, res) => {
   const { id } = req.params;
   const { materialsCost, materialDetails, workNotes } = req.body;
 
@@ -602,27 +643,27 @@ app.post('/api/bookings/:id/generate-bill', (req, res) => {
     return res.status(404).json({ error: 'Booking not found' });
   }
 
-  const matCost = parseFloat(materialsCost) || 0;
+  const matCost = parseFloat(parseFloat(materialsCost || 0).toFixed(2));
   const inviteFee = booking.pricing?.inviteFee || calculateInviteFee(booking.pricing?.distanceKm || 1.2);
   const labourCost = booking.pricing?.labourCost || 450;
   const distanceKm = booking.pricing?.distanceKm || 1.2;
-  const alreadyPaidAmount = booking.pricing?.totalAmount || Math.round((inviteFee + labourCost) * 1.05);
+  const alreadyPaidAmount = parseFloat((booking.pricing?.totalAmount || Math.round((inviteFee + labourCost) * 1.05)).toFixed(2));
 
   // Material cost calculation (Only charge additional material cost to customer)
-  const materialTax = Math.round(matCost * 0.05);
-  const amountDueNow = matCost + materialTax;
+  const materialTax = parseFloat((matCost * 0.05).toFixed(2));
+  const amountDueNow = parseFloat((matCost + materialTax).toFixed(2));
 
-  const grandTotal = alreadyPaidAmount + amountDueNow;
+  const grandTotal = parseFloat((alreadyPaidAmount + amountDueNow).toFixed(2));
 
   const coopPlatformFee = parseFloat((grandTotal * 0.05).toFixed(2));
   const welfareContribution = parseFloat((grandTotal * 0.05).toFixed(2));
   const workerPayout = parseFloat((grandTotal - coopPlatformFee - welfareContribution).toFixed(2));
 
   const receipt = {
-    receiptNo: `RCT-${Math.floor(1000 + Math.random() * 9000)}`,
+    receiptNo: `RCT-${uuidv4()}`,
     generatedAt: new Date().toISOString(),
-    inviteFee,
-    labourCost,
+    inviteFee: parseFloat(Number(inviteFee).toFixed(2)),
+    labourCost: parseFloat(Number(labourCost).toFixed(2)),
     distanceKm,
     alreadyPaidAmount,
     materialsCost: matCost,
@@ -640,7 +681,8 @@ app.post('/api/bookings/:id/generate-bill', (req, res) => {
   booking.finalReceipt = receipt;
   booking.materialPaymentStatus = matCost > 0 ? 'UNPAID' : 'PAID';
   booking.hasPendingMaterialCost = matCost > 0;
-  booking.status = matCost > 0 ? 'MATERIAL_REQUESTED' : 'COMPLETED';
+  // Do NOT auto-complete. The technician must manually confirm completion.
+  booking.status = 'MATERIAL_REQUESTED';
   booking.pricing = {
     ...booking.pricing,
     materialsCost: matCost,
@@ -651,11 +693,13 @@ app.post('/api/bookings/:id/generate-bill', (req, res) => {
     coopPlatformFee
   };
 
+  try { await saveBooking(booking); } catch (err) { return res.status(500).json({ error: 'Bill could not be saved to the database.' }); }
+
   res.json({ success: true, message: 'Digital receipt / Material request generated successfully', booking, receipt });
 });
 
 // 10C. Customer Pays Final Bill Receipt
-app.post('/api/bookings/:id/pay-bill', (req, res) => {
+app.post('/api/bookings/:id/pay-bill', async (req, res) => {
   const { id } = req.params;
   const { paymentMethod } = req.body;
 
@@ -670,35 +714,13 @@ app.post('/api/bookings/:id/pay-bill', (req, res) => {
   }
   booking.materialPaymentStatus = 'PAID';
   booking.hasPendingMaterialCost = false;
-  booking.status = 'COMPLETED';
+  // Do NOT auto-complete the job. The technician must manually confirm completion.
   booking.paymentStatus = 'PAID';
   booking.paymentMethod = paymentMethod || 'UPI / Online';
 
-  const worker = store.workers.find(w => w.id === booking.workerId);
-  const workerPayout = booking.finalReceipt?.workerPayout || booking.pricing?.workerPayout || 427.50;
-  const welfareContribution = booking.finalReceipt?.welfareContribution || booking.pricing?.welfareContribution || 23.75;
+  try { await saveBooking(booking); } catch (err) { return res.status(500).json({ error: 'Payment could not be saved to the database.' }); }
 
-  if (worker) {
-    worker.jobsCompleted += 1;
-    worker.totalEarnings += workerPayout;
-    worker.weeklyEarnings += workerPayout;
-    if (worker.welfare) {
-      worker.welfare.fundBalance += welfareContribution;
-    }
-  }
-
-  const welfareTx = {
-    id: `WT-${Math.floor(500 + Math.random() * 500)}`,
-    workerId: booking.workerId,
-    workerName: booking.workerName,
-    type: 'CONTRIBUTION',
-    amount: welfareContribution,
-    description: `5% Welfare Fund contribution from Booking #${booking.id} (Receipt ${booking.finalReceipt?.receiptNo || 'RCT'})`,
-    date: new Date().toISOString()
-  };
-  store.welfareTransactions.unshift(welfareTx);
-
-  res.json({ success: true, message: 'Payment recorded and job completed!', booking });
+  res.json({ success: true, message: 'Material payment recorded. The technician will confirm work completion.', booking });
 });
 
 // 11. Get Bookings
@@ -764,7 +786,7 @@ app.get('/api/workers/:workerId/reviews', (req, res) => {
 });
 
 // 12A. Customer Rates Worker
-app.post('/api/ratings', (req, res) => {
+app.post('/api/ratings', async (req, res) => {
   const { bookingId, workerId, rating, feedback, customerName, customerPhoto } = req.body;
   const numRating = parseInt(rating) || 5;
 
@@ -805,11 +827,20 @@ app.post('/api/ratings', (req, res) => {
   if (!store.reviews) store.reviews = [];
   store.reviews.unshift(newReview);
 
+  try {
+    await Promise.all([
+      booking ? saveBooking(booking) : Promise.resolve(),
+      worker ? saveUser({ ...worker, role: 'WORKER' }) : Promise.resolve()
+    ]);
+  } catch (err) {
+    return res.status(500).json({ error: 'Rating could not be saved to the database.' });
+  }
+
   res.json({ success: true, message: 'Worker rating submitted successfully', booking, worker, review: newReview });
 });
 
 // 12B. Worker Rates Customer (Mutual Rating System)
-app.post('/api/ratings/customer', (req, res) => {
+app.post('/api/ratings/customer', async (req, res) => {
   const { bookingId, customerId, rating, feedback } = req.body;
   const numRating = parseInt(rating) || 5;
 
@@ -826,23 +857,41 @@ app.post('/api/ratings/customer', (req, res) => {
     customer.rating = parseFloat(((currentTotal + numRating) / customer.jobsBooked).toFixed(2));
   }
 
+  try {
+    await Promise.all([
+      booking ? saveBooking(booking) : Promise.resolve(),
+      customer ? saveUser({ ...customer, role: 'CUSTOMER' }) : Promise.resolve()
+    ]);
+  } catch (err) {
+    return res.status(500).json({ error: 'Customer rating could not be saved to the database.' });
+  }
+
   res.json({ success: true, message: 'Customer rating submitted successfully', booking });
 });
 
 // 13. File Complaint
-app.post('/api/complaints', (req, res) => {
-  const { bookingId, reportedBy, complainantName, issue } = req.body;
+app.post('/api/complaints', async (req, res) => {
+  const { bookingId, reportedBy, complainantName, customerName, customerPhone, issue, description } = req.body;
+  const reporterName = complainantName || customerName || 'Customer';
+  const complaintText = issue || description;
+  if (!complaintText || !String(complaintText).trim()) {
+    return res.status(400).json({ error: 'Complaint description is required.' });
+  }
   const newComplaint = {
-    id: `CMP-${Math.floor(800 + Math.random() * 200)}`,
+    id: `CMP-${uuidv4()}`,
     bookingId: bookingId || 'BK-1001',
     reportedBy: reportedBy || 'CUSTOMER',
-    complainantName: complainantName || 'Aarav Sharma',
-    issue: issue || 'Service delay dispute',
+    complainantName: reporterName,
+    customerName: reporterName,
+    customerPhone: customerPhone || 'N/A',
+    issue: String(complaintText).trim(),
+    description: String(complaintText).trim(),
     status: 'OPEN',
     coopNotes: 'Under review by Cooperative Admin committee',
     createdAt: new Date().toISOString()
   };
   store.complaints.unshift(newComplaint);
+  try { await saveComplaint(newComplaint); } catch (err) { return res.status(500).json({ error: 'Complaint could not be saved to the database.' }); }
   res.status(201).json({ success: true, complaint: newComplaint });
 });
 
@@ -914,32 +963,13 @@ app.get('/api/ai/forecast', (req, res) => {
 });
 
 // 17. File a Complaint
-app.post('/api/complaints', (req, res) => {
-  const { bookingId, customerName, customerPhone, description } = req.body;
-  if (!description) {
-    return res.status(400).json({ error: 'Description is required' });
-  }
-  const complaint = {
-    id: `cmp-${Math.floor(1000 + Math.random() * 9000)}`,
-    bookingId: bookingId || 'N/A',
-    customerName: customerName || 'Customer',
-    customerPhone: customerPhone || 'N/A',
-    description,
-    status: 'OPEN',
-    createdAt: new Date().toISOString()
-  };
-  if (!store.complaints) store.complaints = [];
-  store.complaints.unshift(complaint);
-  res.status(201).json({ success: true, complaint });
-});
-
 // 18. Get all Complaints (for cooperative admin)
 app.get('/api/complaints', (req, res) => {
   res.json(store.complaints || []);
 });
 
 // 19. Resolve Complaint
-app.post('/api/complaints/resolve', (req, res) => {
+app.post('/api/complaints/resolve', async (req, res) => {
   const { complaintId, notes } = req.body;
   const complaint = (store.complaints || []).find(c => c.id === complaintId);
   if (!complaint) {
@@ -948,20 +978,8 @@ app.post('/api/complaints/resolve', (req, res) => {
   complaint.status = 'RESOLVED';
   complaint.coopNotes = notes || 'Resolved by Cooperative Committee';
   complaint.resolvedAt = new Date().toISOString();
+  try { await saveComplaint(complaint); } catch (err) { return res.status(500).json({ error: 'Complaint resolution could not be saved to the database.' }); }
   res.json({ success: true, complaint });
-});
-
-// 20. Worker Verify / Update verification status (admin/cooperative)
-app.post('/api/workers/verify', (req, res) => {
-  const { workerId, status, notes } = req.body;
-  const worker = store.workers.find(w => w.id === workerId);
-  if (!worker) {
-    return res.status(404).json({ error: 'Worker not found' });
-  }
-  if (status) worker.verificationStatus = status;
-  if (notes) worker.verificationNotes = notes;
-  worker.updatedAt = new Date().toISOString();
-  res.json({ success: true, worker });
 });
 
 // Global Express error handler — prevents unhandled route errors from crashing the server
@@ -971,6 +989,8 @@ app.use((err, req, res, next) => {
 });
 
 // Start Express Server
-app.listen(PORT, () => {
-  console.log(`Sahkaar / SevaSetu Core Backend server listening on port ${PORT}`);
+loadPersistentData.finally(() => {
+  app.listen(PORT, () => {
+    console.log(`Sahkaar / SevaSetu Core Backend server listening on port ${PORT}`);
+  });
 });

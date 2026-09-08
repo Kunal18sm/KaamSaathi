@@ -7,7 +7,7 @@ const connectDB = async () => {
     try {
       dns.setServers(['8.8.8.8', '1.1.1.1']);
     } catch (dnsErr) {
-      console.warn('DNS server override notice:', dnsErr.message);
+      console.error('DNS server override notice:', dnsErr.message);
     }
 
     const connStr = process.env.MONGODB_URI;
@@ -23,7 +23,7 @@ const connectDB = async () => {
     console.log(`MongoDB Atlas Connected Successfully: Host = ${conn.connection.host}, DB = ${conn.connection.name}`);
     return true;
   } catch (error) {
-    console.warn(`MongoDB Atlas warning (${error.message}). Operating in hybrid storage mode.`);
+    console.error(`MongoDB Atlas warning (${error.message}). Operating in hybrid storage mode.`);
     return false;
   }
 };

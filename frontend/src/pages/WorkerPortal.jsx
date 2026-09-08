@@ -563,10 +563,11 @@ export default function WorkerPortal({ t, onOpenProfile }) {
                     <h3 className="font-black text-base text-slate-900">{j.serviceName || j.service}</h3>
                     <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
                       j.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-800' : 
+                      (j.status === 'BILL_GENERATED' || j.status === 'MATERIAL_REQUESTED') && j.materialPaymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-800' :
                       j.status === 'BILL_GENERATED' || j.status === 'MATERIAL_REQUESTED' ? 'bg-purple-100 text-purple-800' :
                       j.status === 'COMPLETED' ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'
                     }`}>
-                      {j.status === 'BILL_GENERATED' || j.status === 'MATERIAL_REQUESTED' ? 'MATERIAL REQUESTED' : j.status}
+                      {(j.status === 'BILL_GENERATED' || j.status === 'MATERIAL_REQUESTED') && j.materialPaymentStatus === 'PAID' ? 'MATERIAL COST PAID' : (j.status === 'BILL_GENERATED' || j.status === 'MATERIAL_REQUESTED') ? 'MATERIAL REQUESTED' : j.status}
                     </span>
                     {j.emergency && (
                       <span className="text-[10px] px-2.5 py-0.5 rounded-full font-extrabold bg-red-600 text-white animate-pulse">
@@ -688,18 +689,37 @@ export default function WorkerPortal({ t, onOpenProfile }) {
 
                   {(j.status === 'BILL_GENERATED' || j.status === 'MATERIAL_REQUESTED') && (
                     <>
-                      <span className="w-full sm:w-auto px-3.5 py-2.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
-                        <Clock className="w-4 h-4 text-amber-600 animate-spin" />
-                        Awaiting Material Payment
-                      </span>
+                      {j.materialPaymentStatus === 'PAID' ? (
+                        <>
+                          <span className="w-full sm:w-auto px-3.5 py-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
+                            <CheckCircle className="w-4 h-4 text-emerald-600" />
+                            Material Payment Received
+                          </span>
 
-                      <button
-                        onClick={() => handleCompleteJob(j.id)}
-                        className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        Mark Work Completed
-                      </button>
+                          <button
+                            onClick={() => handleCompleteJob(j.id)}
+                            className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            Confirm Work Completed
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-full sm:w-auto px-3.5 py-2.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5">
+                            <Clock className="w-4 h-4 text-amber-600 animate-spin" />
+                            Awaiting Material Payment
+                          </span>
+
+                          <button
+                            onClick={() => handleCompleteJob(j.id)}
+                            className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            Mark Work Completed
+                          </button>
+                        </>
+                      )}
                     </>
                   )}
 

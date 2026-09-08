@@ -41,7 +41,7 @@ const userSchema = new mongoose.Schema({
   jobsCompleted: { type: Number, default: 0 },
   totalEarnings: { type: Number, default: 0 },
   weeklyEarnings: { type: Number, default: 0 },
-  verificationStatus: { type: String, enum: ['VERIFIED', 'PENDING_REVIEW', 'REJECTED'], default: 'VERIFIED' },
+  verificationStatus: { type: String, enum: ['VERIFIED', 'PENDING', 'PENDING_REVIEW', 'REJECTED'], default: 'VERIFIED' },
   gender: { type: String, default: 'Male' },
   welfare: {
     accountNo: { type: String },
@@ -50,7 +50,7 @@ const userSchema = new mongoose.Schema({
     insurancePolicyNo: { type: String },
     trainingsCompleted: { type: Number, default: 1 }
   }
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 // 3. Service Schema
 const serviceSchema = new mongoose.Schema({
@@ -75,24 +75,17 @@ const bookingSchema = new mongoose.Schema({
   coopName: { type: String, required: true },
   serviceId: { type: String, required: true },
   serviceName: { type: String, required: true },
-  status: { type: String, enum: ['PENDING', 'ASSIGNED', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'], default: 'ASSIGNED' },
+  status: { type: String, default: 'ASSIGNED' },
   emergency: { type: Boolean, default: false },
   scheduledTime: { type: Date, default: Date.now },
   address: { type: String, required: true },
   latitude: { type: Number, default: 28.6139 },
   longitude: { type: Number, default: 77.2090 },
-  pricing: {
-    baseFee: Number,
-    serviceTax: Number,
-    totalAmount: Number,
-    coopPlatformFee: Number,
-    welfareContribution: Number,
-    workerPayout: Number
-  },
+  pricing: { type: mongoose.Schema.Types.Mixed },
   paymentStatus: { type: String, default: 'PAID' },
   paymentMethod: { type: String, default: 'UPI / Online' },
   matchRationale: { type: String }
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 // 5. Welfare Transaction Schema
 const welfareTransactionSchema = new mongoose.Schema({
@@ -103,7 +96,7 @@ const welfareTransactionSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   description: { type: String, required: true },
   date: { type: Date, default: Date.now }
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 // 6. Complaint Schema
 const complaintSchema = new mongoose.Schema({
@@ -114,7 +107,7 @@ const complaintSchema = new mongoose.Schema({
   issue: { type: String, required: true },
   status: { type: String, enum: ['OPEN', 'UNDER_INVESTIGATION', 'RESOLVED', 'REJECTED'], default: 'OPEN' },
   coopNotes: { type: String }
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 // 7. Demand Prediction Schema
 const demandPredictionSchema = new mongoose.Schema({
