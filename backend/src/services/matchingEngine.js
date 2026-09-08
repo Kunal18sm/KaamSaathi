@@ -56,12 +56,13 @@ function findBestWorkerMatch(serviceName, customerLat, customerLng, isEmergency 
   const scoredWorkers = eligibleWorkers.map(worker => {
     const distanceKm = getHaversineDistance(customerLat, customerLng, worker.location.lat, worker.location.lng);
     
-    // Distance-Based Invite Fee & Fixed Labour Cost Calculation
+    // Distance-Based Invite Fee, Fixed Labour Cost & Emergency Fee Calculation
     const inviteFee = calculateInviteFee(distanceKm);
     const labourCost = service.basePrice;
-    const subtotal = inviteFee + labourCost;
-    const serviceTax = Math.round(subtotal * 0.05);
-    const totalEstimate = subtotal + serviceTax;
+    const emergencyFee = isEmergency ? 50 : 0;
+    const subtotal = inviteFee + labourCost + emergencyFee;
+    const serviceTax = parseFloat((subtotal * 0.05).toFixed(2));
+    const totalEstimate = parseFloat((subtotal + serviceTax).toFixed(2));
 
     // 1. Distance Score (0 to 1) - max effective radius 15km
     const distanceScore = Math.max(0, 1 - (distanceKm / 15));
@@ -105,11 +106,14 @@ function findBestWorkerMatch(serviceName, customerLat, customerLng, isEmergency 
     );
 
     let rationaleParts = [];
+    if (isEmergency) {
+      rationaleParts.push(`🚨 URGENT EMERGENCY DISPATCH (+Rs. 50.00 Priority Fee)`);
+    }
     rationaleParts.push(`Qualified ${worker.experienceYears}y exp ${serviceName} expert`);
-    rationaleParts.push(`${distanceKm.toFixed(1)} km (Invite Fee: Rs. ${inviteFee}, Labour: Rs. ${labourCost})`);
+    rationaleParts.push(`${distanceKm.toFixed(1)} km (Invite Fee: Rs. ${inviteFee.toFixed(2)}, Labour: Rs. ${labourCost.toFixed(2)})`);
     rationaleParts.push(`${worker.rating} star rating (${worker.jobsCompleted} completed jobs)`);
     if (worker.weeklyEarnings < 3000) {
-      rationaleParts.push(`Boosted by Cooperative Fairness Priority (earned ₹${worker.weeklyEarnings} this week)`);
+      rationaleParts.push(`Boosted by Cooperative Fairness Priority (earned Rs. ${worker.weeklyEarnings.toFixed(2)} this week)`);
     }
 
     const rationale = `Assigned ${worker.name} (${worker.coopName}): ${rationaleParts.join(' • ')}.`;
@@ -118,12 +122,13 @@ function findBestWorkerMatch(serviceName, customerLat, customerLng, isEmergency 
       worker,
       distanceKm: parseFloat(distanceKm.toFixed(2)),
       pricing: {
-        inviteFee,
-        labourCost,
+        inviteFee: parseFloat(inviteFee.toFixed(2)),
+        labourCost: parseFloat(labourCost.toFixed(2)),
+        emergencyFee: parseFloat(emergencyFee.toFixed(2)),
         distanceKm: parseFloat(distanceKm.toFixed(2)),
-        subtotal,
-        serviceTax,
-        totalEstimate
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        serviceTax: parseFloat(serviceTax.toFixed(2)),
+        totalEstimate: parseFloat(totalEstimate.toFixed(2))
       },
       scores: {
         totalScore: parseFloat((totalScore * 100).toFixed(1)),

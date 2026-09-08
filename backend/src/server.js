@@ -190,9 +190,8 @@ app.post('/api/auth/register', async (req, res) => {
       jobsCompleted: 0,
       totalEarnings: 0,
       weeklyEarnings: 0,
-      // Instant activation is enabled for the current demo workflow. This keeps
-      // a newly registered technician eligible for an immediate booking test.
-      verificationStatus: 'VERIFIED',
+      // Newly registered technician profiles require Cooperative Admin approval before receiving jobs
+      verificationStatus: 'PENDING',
       gender: 'Male',
       welfare: {
         accountNo: `WEL-DEL-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -230,7 +229,7 @@ app.post('/api/auth/register', async (req, res) => {
       name,
       phone,
       photo: photoUrl,
-      email: email || `${phone}@sevasetu.in`,
+      email: email ? email.trim() : null,
       location: { lat: userLat, lng: userLng, address: userAddr }
     };
     store.customers.unshift(newCust);
@@ -520,9 +519,10 @@ app.post('/api/bookings/create', (req, res) => {
   const distanceKm = parseFloat(getHaversineDistance(custLat, custLng, wrkLat, wrkLng).toFixed(2));
   const inviteFee = calculateInviteFee(distanceKm);
   const labourCost = service.basePrice || 450;
-  const subtotal = inviteFee + labourCost;
-  const serviceTax = Math.round(subtotal * 0.05);
-  const initialEstimate = subtotal + serviceTax;
+  const emergencyFee = emergency ? 50 : 0;
+  const subtotal = inviteFee + labourCost + emergencyFee;
+  const serviceTax = parseFloat((subtotal * 0.05).toFixed(2));
+  const initialEstimate = parseFloat((subtotal + serviceTax).toFixed(2));
 
   const coopPlatformFee = parseFloat((initialEstimate * 0.05).toFixed(2));
   const welfareContribution = parseFloat((initialEstimate * 0.05).toFixed(2));
@@ -549,12 +549,13 @@ app.post('/api/bookings/create', (req, res) => {
     latitude: custLat,
     longitude: custLng,
     pricing: {
-      inviteFee,
-      labourCost,
+      inviteFee: parseFloat(inviteFee.toFixed(2)),
+      labourCost: parseFloat(labourCost.toFixed(2)),
+      emergencyFee: parseFloat(emergencyFee.toFixed(2)),
       distanceKm,
-      subtotal,
-      serviceTax,
-      totalAmount: initialEstimate,
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      serviceTax: parseFloat(serviceTax.toFixed(2)),
+      totalAmount: parseFloat(initialEstimate.toFixed(2)),
       coopPlatformFee,
       welfareContribution,
       workerPayout

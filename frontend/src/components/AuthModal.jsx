@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, User, HardHat, Shield, Building2, Phone, Lock, UploadCloud, CheckCircle, ChevronDown, KeyRound } from 'lucide-react';
+import { X, User, HardHat, Shield, Building2, Phone, Lock, UploadCloud, CheckCircle, ChevronDown, KeyRound, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const INPUT_CLS =
   'w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-gray-400 transition';
 const LABEL_CLS = 'block text-xs font-bold text-gray-600 mb-1';
-const SECTION_HDR = 'text-[11px] font-black uppercase tracking-widest text-emerald-700 mb-2';
+const SECTION_HDR = 'text-[11px] font-black uppercase tracking-widest text-emerald-800 pt-1 pb-1 mb-3.5';
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login', initialRole = 'CUSTOMER', t, lang }) {
   const { login, register } = useAuth();
@@ -16,6 +16,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [coopId, setCoopId] = useState('coop-1');
   const [selectedSkills, setSelectedSkills] = useState(['Plumbing']);
@@ -26,7 +27,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
   const [issuingAuthority, setIssuingAuthority] = useState('National Council for Vocational Training (NCVT)');
   const [certDocBase64, setCertDocBase64] = useState(null);
   const [certDocFileName, setCertDocFileName] = useState('');
-  const [showCertDetails, setShowCertDetails] = useState(false);
+  const [showCertDetails, setShowCertDetails] = useState(true);
 
   const [photoBase64, setPhotoBase64] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -44,8 +45,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
     }
   }, [isOpen]);
 
-  const auth = (t && t.auth) || {};
-  const label = (key, fallback) => auth[key] || fallback;
+  const label = (k, fallback) => (t && t.auth && t.auth[k]) || fallback;
 
   if (!isOpen) return null;
 
@@ -105,21 +105,29 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
         setErrorMsg('Enter a valid 10-digit Indian mobile number starting with 6–9.');
         return;
       }
-      if (role === 'WORKER' && (!Number.isInteger(Number(experienceYears)) || Number(experienceYears) < 0 || Number(experienceYears) > 60)) {
-        setLoading(false);
-        setErrorMsg('Enter valid work experience between 0 and 60 years.');
-        return;
+      if (role === 'WORKER') {
+        if (!Number.isInteger(Number(experienceYears)) || Number(experienceYears) < 0 || Number(experienceYears) > 60) {
+          setLoading(false);
+          setErrorMsg('Enter valid work experience between 0 and 60 years.');
+          return;
+        }
+        if (!certificateNumber || !certificateNumber.trim()) {
+          setLoading(false);
+          setErrorMsg('Trade License / Certificate number is mandatory for technician verification.');
+          return;
+        }
       }
       const formData = {
         name: cleanName,
         phone: `+91 ${phoneDigits.slice(-10)}`,
+        email: email.trim() || undefined,
         password,
         role,
         coopId,
         skills: selectedSkills,
         experienceYears: role === 'WORKER' ? Number(experienceYears) : undefined,
         certificateType,
-        certificateNumber: certificateNumber.trim() || `CERT-${Math.floor(10000 + Math.random() * 90000)}`,
+        certificateNumber: certificateNumber.trim(),
         issuingAuthority,
         certificateDoc: certDocBase64,
         certificates: [certificateType],
@@ -138,20 +146,14 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
   const skills = ['Plumbing', 'Electrical Repair', 'Carpentry', 'House Painting', 'Deep Cleaning', 'AC Service & Repair'];
 
   const mainRoles = [
-    { key: 'CUSTOMER', icon: User, label: label('roleCustomer', 'Customer') },
-    { key: 'WORKER', icon: HardHat, label: label('roleWorker', 'Technician') },
+    { key: 'CUSTOMER', icon: User, label: 'Customer' },
+    { key: 'WORKER', icon: HardHat, label: 'Technician' },
   ];
 
   const adminRoles = [
-    { key: 'COOPERATIVE', icon: Shield, label: label('roleCoopAdmin', 'Coop Admin') },
-    { key: 'FEDERATION', icon: Building2, label: label('roleMinistry', 'Ministry') },
+    { key: 'COOPERATIVE', icon: Building2, label: 'Coop Admin' },
+    { key: 'FEDERATION', icon: Shield, label: 'Ministry' },
   ];
-
-  const handleSwitchToRegister = () => {
-    setMode('register');
-    if (role === 'COOPERATIVE' || role === 'FEDERATION') setRole('CUSTOMER');
-    setErrorMsg(null);
-  };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -159,7 +161,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
         mode === 'register' ? 'max-w-lg sm:max-w-xl' : 'max-w-md'
       }`}>
 
-        {/* ── Header ── */}
         <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 px-6 pt-5 pb-4 border-b border-gray-100">
           <button
             onClick={onClose}
@@ -186,12 +187,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
         </div>
 
         <div className="px-6 py-6 space-y-6">
-
-          {/* ── Role Picker ── */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
+          <div className="bg-slate-50 p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-2xs space-y-3">
             <p className={SECTION_HDR}>Select Account Type</p>
-            
-            {/* Primary Roles: Customer & Technician */}
             <div className="grid grid-cols-2 gap-3">
               {mainRoles.map(({ key, icon: Icon, label: roleName }) => (
                 <button
@@ -213,7 +210,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
               ))}
             </div>
 
-            {/* Admin / Official Roles in Sign-In */}
             {mode === 'login' && (
               <div className="mt-3 pt-3 border-t border-gray-200/70">
                 <div className="flex items-center justify-between mb-2">
@@ -246,27 +242,14 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                 </div>
               </div>
             )}
-
-            {mode === 'register' && (
-              <p className="text-[11px] text-gray-500 text-center pt-1">
-                Cooperative Admin & Ministry accounts are pre-issued by authority.
-              </p>
-            )}
           </div>
 
-          {/* ── Form ── */}
           <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
-
-            {/* ── Register-only fields ── */}
             {mode === 'register' && (
               <div className="space-y-6">
-
-                {/* Section 1: Basic Personal Info */}
-                <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-200/80 space-y-3">
+                <div className="bg-slate-50 p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-2xs space-y-4">
                   <p className={SECTION_HDR}>1. Personal Information</p>
-
                   <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4">
-                    {/* Photo upload */}
                     <div className="shrink-0 flex flex-col items-center gap-1">
                       <button
                         type="button"
@@ -282,28 +265,37 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                       <span className="text-[11px] text-gray-500 font-semibold">Upload Photo</span>
                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
                     </div>
-
-                    {/* Full Name */}
-                    <div className="w-full sm:flex-1">
-                      <label className={LABEL_CLS}>Full Name *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Ramesh Kumar"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className={INPUT_CLS}
-                        autoComplete="off"
-                      />
+                    <div className="w-full sm:flex-1 space-y-3">
+                      <div>
+                        <label className={LABEL_CLS}>Full Name *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Ramesh Kumar"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className={INPUT_CLS}
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div>
+                        <label className={LABEL_CLS}>Email Address <span className="font-normal text-gray-400">(Optional)</span></label>
+                        <input
+                          type="email"
+                          placeholder="e.g. ramesh@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className={INPUT_CLS}
+                          autoComplete="off"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Section 2: Technician Details (If Worker) */}
                 {role === 'WORKER' && (
-                  <div className="bg-emerald-50/60 p-4.5 rounded-2xl border border-emerald-200 space-y-4">
-                    <p className={SECTION_HDR}>2. Technician & Trade Details</p>
-
+                  <div className="bg-emerald-50/70 p-5 sm:p-6 rounded-3xl border border-emerald-300 shadow-2xs space-y-5">
+                    <p className={SECTION_HDR}>2. Technician & Trade Details *</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className={LABEL_CLS}>Cooperative Society *</label>
@@ -331,10 +323,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                         />
                       </div>
                     </div>
-
-                    {/* Primary Skills */}
                     <div>
-                      <label className={LABEL_CLS}>Skills & Services Offered</label>
+                      <label className={LABEL_CLS}>Skills & Services Offered *</label>
                       <div className="flex flex-wrap gap-2 mt-1.5">
                         {skills.map((sk) => (
                           <button
@@ -352,82 +342,72 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
                         ))}
                       </div>
                     </div>
-
-                    {/* Collapsible Certificate Details */}
-                    <div className="border-t border-emerald-200 pt-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowCertDetails(!showCertDetails)}
-                        className="flex items-center justify-between w-full text-xs font-black text-emerald-800 hover:text-emerald-900 transition py-1"
-                      >
-                        <span>Trade License & Certification <span className="font-semibold text-emerald-600">(Optional)</span></span>
-                        <ChevronDown className={`w-4 h-4 transition-transform ${showCertDetails ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      {showCertDetails && (
-                        <div className="mt-3 space-y-3 bg-white p-3.5 rounded-xl border border-emerald-200">
+                    <div className="border-t border-emerald-200 pt-4 space-y-3">
+                      <div className="text-xs font-black text-emerald-900">
+                        Trade License & Certificate Details *
+                      </div>
+                      <div className="space-y-3 bg-white p-4 rounded-2xl border border-emerald-200">
+                        <div>
+                          <label className={LABEL_CLS}>Certificate / License Type *</label>
+                          <select
+                            value={certificateType}
+                            onChange={(e) => setCertificateType(e.target.value)}
+                            className={INPUT_CLS}
+                          >
+                            <option value="ITI Trade Diploma">ITI Trade Diploma (NCVT)</option>
+                            <option value="Government Wireman/Electrical License">Govt. Wireman / Electrical License</option>
+                            <option value="Skill India (NSDC) Certificate">Skill India (NSDC) Certificate</option>
+                            <option value="State Labour Directorate Trade License">State Labour Trade License</option>
+                            <option value="Polytechnic Technical Certificate">Polytechnic Technical Certificate</option>
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className={LABEL_CLS}>Certificate / License Type</label>
-                            <select
-                              value={certificateType}
-                              onChange={(e) => setCertificateType(e.target.value)}
+                            <label className={LABEL_CLS}>Certificate / License No. *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. ITI/DL/2021/9841"
+                              value={certificateNumber}
+                              onChange={(e) => setCertificateNumber(e.target.value)}
                               className={INPUT_CLS}
-                            >
-                              <option value="ITI Trade Diploma">ITI Trade Diploma (NCVT)</option>
-                              <option value="Government Wireman/Electrical License">Govt. Wireman / Electrical License</option>
-                              <option value="Skill India (NSDC) Certificate">Skill India (NSDC) Certificate</option>
-                              <option value="State Labour Directorate Trade License">State Labour Trade License</option>
-                              <option value="Polytechnic Technical Certificate">Polytechnic Technical Certificate</option>
-                            </select>
+                            />
                           </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className={LABEL_CLS}>Certificate / License No.</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. ITI/DL/2021/9841"
-                                value={certificateNumber}
-                                onChange={(e) => setCertificateNumber(e.target.value)}
-                                className={INPUT_CLS}
-                              />
-                            </div>
-                            <div>
-                              <label className={LABEL_CLS}>Issuing Board / Authority</label>
-                              <input
-                                type="text"
-                                placeholder="NCVT / State Labour Board"
-                                value={issuingAuthority}
-                                onChange={(e) => setIssuingAuthority(e.target.value)}
-                                className={INPUT_CLS}
-                              />
-                            </div>
-                          </div>
-
                           <div>
-                            <label className={LABEL_CLS}>Upload Certificate Scan (PDF / Image)</label>
-                            <div className="flex items-center gap-3 mt-1.5">
-                              <button
-                                type="button"
-                                onClick={() => certFileInputRef.current?.click()}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs"
-                              >
-                                <UploadCloud className="w-4 h-4" />
-                                Attach File
-                              </button>
-                              <input ref={certFileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleCertDocChange} />
-                              {certDocFileName ? (
-                                <span className="text-xs text-emerald-700 font-bold flex items-center gap-1 truncate max-w-[200px]">
-                                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                                  {certDocFileName}
-                                </span>
-                              ) : (
-                                <span className="text-xs text-gray-500">Scan for verification committee</span>
-                              )}
-                            </div>
+                            <label className={LABEL_CLS}>Issuing Authority *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="NCVT / State Labour Board"
+                              value={issuingAuthority}
+                              onChange={(e) => setIssuingAuthority(e.target.value)}
+                              className={INPUT_CLS}
+                            />
                           </div>
                         </div>
-                      )}
+                        <div>
+                          <label className={LABEL_CLS}>Upload License Scan (PDF / Image)</label>
+                          <div className="flex items-center gap-3 mt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => certFileInputRef.current?.click()}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs"
+                            >
+                              <UploadCloud className="w-4 h-4" />
+                              Attach File
+                            </button>
+                            <input ref={certFileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleCertDocChange} />
+                            {certDocFileName ? (
+                              <span className="text-xs text-emerald-700 font-bold flex items-center gap-1 truncate max-w-[200px]">
+                                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                                {certDocFileName}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-500">Document scan for verification committee</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -435,7 +415,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', init
             )}
 
             {/* Section 3: Account Credentials */}
-            <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-200/80 space-y-4">
+            <div className="bg-slate-50 p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-2xs space-y-4">
               <p className={SECTION_HDR}>
                 {mode === 'register' ? '3. Account Login Credentials' : 'Account Credentials'}
               </p>

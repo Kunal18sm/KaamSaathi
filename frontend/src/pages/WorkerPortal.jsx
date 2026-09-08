@@ -439,6 +439,16 @@ export default function WorkerPortal({ t, onOpenProfile }) {
         </div>
       </div>
 
+      {!isVerified && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-900 flex items-start gap-3 shadow-xs">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <div className="font-extrabold text-sm text-amber-900">Account Verification Pending with Cooperative Admin</div>
+            <p className="mt-0.5 text-amber-800 font-medium">Your trade credentials and license details have been submitted to your Cooperative Society Committee. Once approved by the Admin, you will be activated to receive job requests.</p>
+          </div>
+        </div>
+      )}
+
       {/* Perfectly Centered 2x2 Metric Cards (Tight padding, centered icon + number) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="bg-white rounded-2xl p-3 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center space-y-1">
@@ -560,7 +570,7 @@ export default function WorkerPortal({ t, onOpenProfile }) {
                     </span>
                     {j.emergency && (
                       <span className="text-[10px] px-2.5 py-0.5 rounded-full font-extrabold bg-red-600 text-white animate-pulse">
-                        EMERGENCY
+                        🚨 EMERGENCY (+Rs. 50.00 PRIORITY)
                       </span>
                     )}
                   </div>
@@ -568,7 +578,9 @@ export default function WorkerPortal({ t, onOpenProfile }) {
                   {/* Net Payout formatted clearly on one line */}
                   <div className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-1.5 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl">
                     <span className="text-[11px] text-slate-500 font-semibold">Worker Payout:</span>
-                    <span className="text-base font-black text-emerald-800">Rs. {j.pricing?.workerPayout || j.payout || 427.50}</span>
+                    <span className="text-base font-black text-emerald-800">
+                      Rs. {Number(j.pricing?.workerPayout || j.payout || 427.50).toFixed(2)}
+                    </span>
                   </div>
                 </div>
 
@@ -587,14 +599,19 @@ export default function WorkerPortal({ t, onOpenProfile }) {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
+                    {j.emergency && (
+                      <span className="bg-red-100 text-red-800 px-2.5 py-1 rounded-lg border border-red-200">
+                        Emergency Priority: +Rs. 50.00
+                      </span>
+                    )}
                     {j.pricing?.inviteFee && (
                       <span className="bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg border border-emerald-200">
-                        Invite Fee: Rs. {j.pricing.inviteFee}
+                        Invite Fee: Rs. {Number(j.pricing.inviteFee).toFixed(2)}
                       </span>
                     )}
                     {j.pricing?.labourCost && (
                       <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200">
-                        Labour: Rs. {j.pricing.labourCost}
+                        Labour: Rs. {Number(j.pricing.labourCost).toFixed(2)}
                       </span>
                     )}
                   </div>

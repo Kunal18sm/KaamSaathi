@@ -534,15 +534,22 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                       <span>BK #{b.id}</span>
                       {b.pricing?.inviteFee && (
                         <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-200">
-                          Invite Fee ({b.pricing.distanceKm} km): Rs. {b.pricing.inviteFee}
+                          Invite Fee ({b.pricing.distanceKm} km): Rs. {Number(b.pricing.inviteFee).toFixed(2)}
                         </span>
                       )}
                       {b.pricing?.labourCost && (
                         <span className="bg-slate-100 text-slate-700 text-[10px] font-semibold px-2 py-0.5 rounded border border-slate-200">
-                          Fixed Labour: Rs. {b.pricing.labourCost}
+                          Fixed Labour: Rs. {Number(b.pricing.labourCost).toFixed(2)}
                         </span>
                       )}
-                      <span className="font-bold text-slate-900">Initial Paid: Rs. {b.pricing?.totalAmount || 475}</span>
+                      {b.pricing?.emergencyFee > 0 && (
+                        <span className="bg-red-50 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200">
+                          Emergency Priority: +Rs. {Number(b.pricing.emergencyFee).toFixed(2)}
+                        </span>
+                      )}
+                      <span className="font-bold text-slate-900">
+                        Initial Paid: Rs. {Number(b.pricing?.totalAmount || 475).toFixed(2)}
+                      </span>
                     </div>
                   </div>
 
@@ -553,7 +560,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                         className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black flex items-center gap-1 shadow-xs transition animate-bounce"
                       >
                         <CreditCard className="w-3.5 h-3.5" />
-                        Pay Material Cost (Rs. {b.finalReceipt.amountDueNow || b.finalReceipt.materialsCost})
+                        Pay Material Cost (Rs. {Number(b.finalReceipt.amountDueNow || b.finalReceipt.materialsCost).toFixed(2)})
                       </button>
                     )}
 
@@ -660,7 +667,9 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-slate-100">
                         <div className="text-xs">
                           <span className="text-slate-400">Total Price: </span>
-                          <span className="font-black text-slate-900 text-sm">Rs. {candidate.pricing?.totalEstimate || selectedService?.basePrice}</span>
+                          <span className="font-black text-slate-900 text-sm">
+                            Rs. {Number(candidate.pricing?.totalEstimate || selectedService?.basePrice || 450).toFixed(2)}
+                          </span>
                         </div>
 
                         <div className="flex gap-2">

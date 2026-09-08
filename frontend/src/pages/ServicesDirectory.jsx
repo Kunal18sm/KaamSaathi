@@ -52,7 +52,7 @@ export default function ServicesDirectory({ onBack, onSelectService }) {
             <img src={SERVICE_IMAGES[service.id] || SERVICE_IMAGES['srv-1']} alt={service.name} className="h-28 w-full object-cover group-hover:scale-105 transition duration-300" />
             <div className="space-y-1 p-3">
               <h2 className="text-sm font-bold text-slate-900 group-hover:text-emerald-700">{service.name}</h2>
-              <p className="text-xs font-bold text-emerald-700">From Rs. {service.basePrice}</p>
+              <p className="text-xs font-bold text-emerald-700">From Rs. {Number(service.basePrice).toFixed(2)}</p>
             </div>
           </article>
         ))}
