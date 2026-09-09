@@ -4,6 +4,7 @@ import {
   MapPin, Cpu, BarChart3, PieChart, CheckCircle
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { apiFetch } from '../utils/api';
 
 export default function FederationMinistryDashboard({ t }) {
   const [analytics, setAnalytics] = useState(null);
@@ -11,12 +12,12 @@ export default function FederationMinistryDashboard({ t }) {
   const [shortageAlerts, setShortageAlerts] = useState([]);
 
   useEffect(() => {
-    fetch('/api/federation/analytics')
+    apiFetch('/api/federation/analytics')
       .then(res => res.json())
       .then(data => setAnalytics(data))
       .catch(err => console.error(err));
 
-    fetch('/api/ai/forecast')
+    apiFetch('/api/ai/forecast')
       .then(res => res.json())
       .then(data => {
         setAiForecasts(data.districtDemands || []);

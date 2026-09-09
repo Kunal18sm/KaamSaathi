@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ServiceMap from '../components/ServiceMap';
+import { apiFetch } from '../utils/api';
 
 // Web Audio API & Device Vibration Alert Synthesizer
 export function triggerJobAlert({ isEmergency = false } = {}) {
@@ -141,7 +142,7 @@ export default function WorkerPortal({ t, onOpenProfile }) {
   const fetchAssignedJobs = async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`/api/bookings?workerId=${encodeURIComponent(user.id)}&_=${Date.now()}`, {
+      const res = await apiFetch(`/api/bookings?workerId=${encodeURIComponent(user.id)}&_=${Date.now()}`, {
         cache: 'no-store'
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -190,7 +191,7 @@ export default function WorkerPortal({ t, onOpenProfile }) {
   const handleAvailabilityChange = async () => {
     const nextAvailability = !isAvailable;
     try {
-      const res = await fetch(`/api/workers/${encodeURIComponent(user.id)}/availability`, {
+      const res = await apiFetch(`/api/workers/${encodeURIComponent(user.id)}/availability`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ availability: nextAvailability })
@@ -212,7 +213,7 @@ export default function WorkerPortal({ t, onOpenProfile }) {
     }
 
     try {
-      const res = await fetch(`/api/bookings/${jobId}/status`, {
+      const res = await apiFetch(`/api/bookings/${jobId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'ACCEPTED' })
@@ -233,7 +234,7 @@ export default function WorkerPortal({ t, onOpenProfile }) {
 
   const handleCompleteJob = async (jobId) => {
     try {
-      const res = await fetch(`/api/bookings/${jobId}/status`, {
+      const res = await apiFetch(`/api/bookings/${jobId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'COMPLETED' })
@@ -250,7 +251,7 @@ export default function WorkerPortal({ t, onOpenProfile }) {
   const handleGenerateBillSubmit = async () => {
     if (!selectedJobForBill) return;
     try {
-      const res = await fetch(`/api/bookings/${selectedJobForBill.id}/generate-bill`, {
+      const res = await apiFetch(`/api/bookings/${selectedJobForBill.id}/generate-bill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -272,7 +273,7 @@ export default function WorkerPortal({ t, onOpenProfile }) {
   const handleRateCustomerSubmit = async () => {
     if (!selectedJobForRating) return;
     try {
-      const res = await fetch('/api/ratings/customer', {
+      const res = await apiFetch('/api/ratings/customer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

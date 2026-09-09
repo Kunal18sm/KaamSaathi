@@ -7,6 +7,7 @@ import { generateInvoicePDF } from '../utils/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 import { triggerJobAlert } from './WorkerPortal';
 import { SERVICE_IMAGES } from '../utils/serviceImages';
+import { apiFetch } from '../utils/api';
 
 const SLIDER_SERVICE_IMAGES = {
   'srv-1': 'https://plus.unsplash.com/premium_photo-1663045495725-89f23b57cfc5?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8cGx1bWJlcnxlbnwwfHwwfHx8MA%3D%3D',
@@ -86,7 +87,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
   const fetchCustomerBookings = async () => {
     const customerUrl = user?.id ? `/api/bookings?customerId=${user.id}` : '/api/bookings';
     try {
-      const res = await fetch(customerUrl);
+      const res = await apiFetch(customerUrl);
       const data = await res.json();
       const currentBookings = Array.isArray(data) ? data : [];
       setBookingsList(currentBookings);
@@ -115,7 +116,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
 
   useEffect(() => {
     detectCustomerLocation();
-    fetch('/api/services')
+    apiFetch('/api/services')
       .then(res => res.json())
       .then(data => {
         setServices(data);
@@ -134,7 +135,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
     setSelectedService(srv);
     setIsMatching(true);
     try {
-      const res = await fetch('/api/bookings/match', {
+      const res = await apiFetch('/api/bookings/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -198,7 +199,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
         landmark: customLandmark.trim() || pendingBookingData.landmark
       };
 
-      const res = await fetch('/api/bookings/create', {
+      const res = await apiFetch('/api/bookings/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -233,7 +234,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
     setWorkerReviews([]);
     setIsLoadingReviews(true);
     try {
-      const res = await fetch(`/api/workers/${worker.id}/reviews`);
+      const res = await apiFetch(`/api/workers/${worker.id}/reviews`);
       const data = await res.json();
       setWorkerReviews(Array.isArray(data.reviews) ? data.reviews : []);
     } catch (err) {
@@ -248,7 +249,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
     setBillPayStatus('processing');
     await new Promise(r => setTimeout(r, 1200));
     try {
-      const res = await fetch(`/api/bookings/${payBillBooking.id}/pay-bill`, {
+      const res = await apiFetch(`/api/bookings/${payBillBooking.id}/pay-bill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentMethod: billPaymentMethod })
@@ -270,7 +271,7 @@ export default function CustomerPortal({ t, onOpenProfile, onBrowseServices, ini
   const handleRateWorkerSubmit = async () => {
     if (!ratingBooking) return;
     try {
-      const res = await fetch('/api/ratings', {
+      const res = await apiFetch('/api/ratings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

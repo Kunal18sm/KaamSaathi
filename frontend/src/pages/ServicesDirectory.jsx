@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Search } from 'lucide-react';
 import { SERVICE_IMAGES } from '../utils/serviceImages';
+import { apiFetch } from '../utils/api';
 
 export default function ServicesDirectory({ onBack, onSelectService }) {
   const [services, setServices] = useState([]);
   const [query, setQuery] = useState('');
 
   useEffect(() => {
-    fetch('/api/services')
+    apiFetch('/api/services')
       .then(res => res.json())
       .then(data => setServices(Array.isArray(data) ? data : []))
       .catch(() => setServices([]));

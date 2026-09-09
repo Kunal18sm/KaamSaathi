@@ -4,6 +4,7 @@ import {
   Award, AlertTriangle, FileText, TrendingUp, Sparkles, Sliders, ExternalLink, Eye, X, Heart, Clock
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../utils/api';
 
 export default function CooperativeAdminDashboard({ t }) {
   const { user } = useAuth();
@@ -16,17 +17,17 @@ export default function CooperativeAdminDashboard({ t }) {
   const [resolvingId, setResolvingId] = useState(null);
 
   const fetchAllData = () => {
-    fetch('/api/workers')
+    apiFetch('/api/workers')
       .then(res => res.json())
       .then(data => setWorkers(Array.isArray(data) ? data : []))
       .catch(err => console.error(err));
 
-    fetch('/api/cooperatives')
+    apiFetch('/api/cooperatives')
       .then(res => res.json())
       .then(data => setCooperatives(Array.isArray(data) ? data : []))
       .catch(err => console.error(err));
 
-    fetch('/api/complaints')
+    apiFetch('/api/complaints')
       .then(res => res.json())
       .then(data => setComplaints(Array.isArray(data) ? data : []))
       .catch(err => console.error(err));
@@ -38,7 +39,7 @@ export default function CooperativeAdminDashboard({ t }) {
 
   const handleVerifyWorker = async (workerId, action) => {
     try {
-      const res = await fetch('/api/workers/verify', {
+      const res = await apiFetch('/api/workers/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workerId, action })
@@ -55,7 +56,7 @@ export default function CooperativeAdminDashboard({ t }) {
   const handleResolveComplaint = async (complaintId) => {
     try {
       setResolvingId(complaintId);
-      const res = await fetch('/api/complaints/resolve', {
+      const res = await apiFetch('/api/complaints/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ complaintId, notes: 'Resolved by Cooperative Committee after review.' })

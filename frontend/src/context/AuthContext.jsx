@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiFetch } from '../utils/api';
 
 const AuthContext = createContext(null);
 
@@ -8,7 +9,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (token) {
-      fetch('/api/auth/me', {
+      apiFetch('/api/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(res => res.json())
@@ -22,7 +23,7 @@ export function AuthProvider({ children }) {
 
   const login = async (phone, role) => {
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, role })
@@ -41,7 +42,7 @@ export function AuthProvider({ children }) {
 
   const register = async (formData) => {
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -70,7 +71,7 @@ export function AuthProvider({ children }) {
   const updateUser = async (updatedFields) => {
     if (!user) return;
     try {
-      const res = await fetch('/api/users/profile', {
+      const res = await apiFetch('/api/users/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
